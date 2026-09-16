@@ -1,0 +1,9 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+# FastAPI's dependency syntax intentionally calls Depends in defaults. The
+# desktop client intentionally uses local calendar dates and broad exception
+# boundaries around network/UI background workers.
+ignore = ["B008", "BLE001", "DTZ005", "DTZ007", "DTZ011"]

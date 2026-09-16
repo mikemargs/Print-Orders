@@ -1,0 +1,53 @@
+services:
+  database:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: printorders
+      POSTGRES_USER: printorders
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - printorders_database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U printorders -d printorders"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./server
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://printorders:${POSTGRES_PASSWORD}@database:5432/printorders
+      JWT_SECRET: ${JWT_SECRET}
+      BOOTSTRAP_COMPANY_NAME: ${BOOTSTRAP_COMPANY_NAME}
+      BOOTSTRAP_COMPANY_CODE: ${BOOTSTRAP_COMPANY_CODE}
+      BOOTSTRAP_COMPANY_PASSWORD: ${BOOTSTRAP_COMPANY_PASSWORD}
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME}
+      BOOTSTRAP_ADMIN_PIN: ${BOOTSTRAP_ADMIN_PIN}
+    expose:
+      - "8000"
+
+  gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-http://localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./server/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  printorders_database:
+  caddy_data:
+  caddy_config:
