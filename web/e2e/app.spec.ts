@@ -20,7 +20,7 @@ test('online workflow remains readable after an offline reload', async ({ page, 
   await page.getByLabel('First name').fill('Pat')
   await page.getByLabel('Last name').fill('Tester')
   await page.getByRole('button', { name: 'Save customer' }).click()
-  await expect(page).toHaveURL(/\/customers\/[^/]+$/)
+  await page.waitForURL(url => url.pathname.startsWith('/customers/') && !url.pathname.endsWith('/new'))
   const customerId = page.url().split('/').pop()!
 
   await page.getByRole('link', { name: 'Work Orders' }).click()
@@ -30,7 +30,7 @@ test('online workflow remains readable after an offline reload', async ({ page, 
   await page.getByPlaceholder('Item / service').fill('Yard Sign')
   await page.getByLabel('Unit price').fill('25')
   await page.getByRole('button', { name: 'Save work order' }).click()
-  await expect(page).toHaveURL(/\/orders\/[^/]+$/)
+  await page.waitForURL(url => url.pathname.startsWith('/orders/') && !url.pathname.endsWith('/new'))
 
   await page.getByRole('link', { name: 'Work Orders' }).click()
   await expect(page.getByText('Offline acceptance order')).toBeVisible()
