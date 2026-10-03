@@ -24,7 +24,12 @@ test('online workflow remains readable after an offline reload', async ({ page, 
   const customerId = page.url().split('/').pop()!
 
   await page.getByRole('link', { name: 'Work Orders' }).click()
+  const customerListResponse = page.waitForResponse(response => response.url().includes('/api/customers?limit=200') && response.request().method() === 'GET')
   await page.getByRole('link', { name: 'New work order' }).click()
+  const customerResponse = await customerListResponse
+  expect(customerResponse.ok()).toBeTruthy()
+  const customerPayload = await customerResponse.json() as { customers: Array<{ id: string }> }
+  expect(customerPayload.customers.map(customer => customer.id)).toContain(customerId)
   await page.getByLabel('Customer', { exact: true }).selectOption(customerId)
   await page.getByLabel('Description').fill('Offline acceptance order')
   await page.getByPlaceholder('Item / service').fill('Yard Sign')
