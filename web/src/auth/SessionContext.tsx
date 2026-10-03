@@ -26,6 +26,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const mounted = useRef(true)
 
   const setSession = useCallback((next: SessionInfo) => {
+    if (!mounted.current) return
     setCsrfToken(next.csrf_token)
     setSessionState(next)
     void cacheSessionInfo(next)
@@ -54,21 +55,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
     }
     clearCsrfToken()
-    setSessionState(null)
+    if (mounted.current) setSessionState(null)
     return true
   }, [])
 
   const refresh = useCallback(async () => {
     try {
       if (await finishPendingLogout()) {
-        setSessionState(null)
+        if (mounted.current) setSessionState(null)
         return
       }
       setSession(await apiFetch<SessionInfo>('/api/web/session'))
     } catch (error) {
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         clearCsrfToken()
-        setSessionState(null)
+        if (mounted.current) setSessionState(null)
         await clearOfflineCache()
       } else if (
         !navigator.onLine ||
@@ -76,11 +77,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       ) {
         const cached = await cachedSessionInfo()
         if (cached) {
-          setCsrfToken(cached.csrf_token)
-          setSessionState(cached)
+          if (mounted.current) {
+            setCsrfToken(cached.csrf_token)
+            setSessionState(cached)
+          }
         } else {
           clearCsrfToken()
-          setSessionState(null)
+          if (mounted.current) setSessionState(null)
         }
       } else {
         throw error
@@ -105,7 +108,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
 
     clearCsrfToken()
-    setSessionState(null)
+    if (mounted.current) setSessionState(null)
     if (clearCache) await clearOfflineCache()
     if (deferServerLogout && csrf) await setPendingLogoutCsrf(csrf)
   }, [session])
