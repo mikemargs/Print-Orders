@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Uppy from '@uppy/core'
 import Tus from '@uppy/tus'
 import { apiFetch } from '../../api/http'
@@ -9,8 +9,8 @@ type Authorization={attachment:Attachment;object_key:string;tus_endpoint:string;
 
 export function AttachmentPanel({orderId}:{orderId:string}){
   const {online}=useOnline(); const [files,setFiles]=useState<Attachment[]>([]); const [progress,setProgress]=useState(''); const [error,setError]=useState(''); const input=useRef<HTMLInputElement>(null)
-  const refresh=()=>apiFetch<{files:Attachment[]}>(`/api/orders/${orderId}/files`).then(x=>setFiles(x.files))
-  useEffect(()=>{if(online)void refresh()},[orderId,online])
+  const refresh=useCallback(()=>apiFetch<{files:Attachment[]}>(`/api/orders/${orderId}/files`).then(x=>setFiles(x.files)),[orderId])
+  useEffect(()=>{if(online)void refresh()},[online,refresh])
   async function upload(file:File){if(!online)return;setError('');setProgress('Authorizing…');const uppy=new Uppy({autoProceed:false});try{
     const auth=await apiFetch<Authorization>(`/api/orders/${orderId}/files/upload-authorizations`,{method:'POST',body:JSON.stringify({filename:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size})})
     uppy.use(Tus,{endpoint:auth.tus_endpoint,chunkSize:auth.chunk_size,uploadDataDuringCreation:true,removeFingerprintOnSuccess:true,retryDelays:[0,3000,5000,10000,20000],headers:{apikey:auth.publishable_key,'x-signature':auth.token},allowedMetaFields:['bucketName','objectName','contentType']})
