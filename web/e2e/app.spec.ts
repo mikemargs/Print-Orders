@@ -21,10 +21,11 @@ test('online workflow remains readable after an offline reload', async ({ page, 
   await page.getByLabel('Last name').fill('Tester')
   await page.getByRole('button', { name: 'Save customer' }).click()
   await expect(page).toHaveURL(/\/customers\/[^/]+$/)
+  const customerId = page.url().split('/').pop()!
 
   await page.getByRole('link', { name: 'Work Orders' }).click()
   await page.getByRole('link', { name: 'New work order' }).click()
-  await page.getByLabel('Customer', { exact: true }).selectOption({ label: 'Playwright Customer' })
+  await page.getByLabel('Customer', { exact: true }).selectOption(customerId)
   await page.getByLabel('Description').fill('Offline acceptance order')
   await page.getByPlaceholder('Item / service').fill('Yard Sign')
   await page.getByLabel('Unit price').fill('25')
