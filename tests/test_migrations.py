@@ -74,6 +74,7 @@ class MigrationTests(unittest.TestCase):
                 env=env,
                 capture_output=True,
                 text=True,
+                check=False,
             )
             self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
             with closing(sqlite3.connect(db_path)) as conn:
@@ -85,6 +86,7 @@ class MigrationTests(unittest.TestCase):
                 env=env,
                 capture_output=True,
                 text=True,
+                check=False,
             )
             self.assertNotEqual(upgraded.returncode, 0)
             self.assertIn("cannot safely infer", (upgraded.stdout + upgraded.stderr).lower())
