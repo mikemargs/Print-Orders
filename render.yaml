@@ -2,6 +2,7 @@ services:
   - type: web
     name: print-order-manager
     runtime: docker
+    region: virginia
     dockerfilePath: ./server/Dockerfile
     dockerContext: .
     healthCheckPath: /api/health
