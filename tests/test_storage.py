@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'server'))
 
 from app.storage.fake import FakeStorageAdapter
+from app.storage.supabase import SupabaseStorageAdapter
 
 
 class StorageAdapterTests(unittest.TestCase):
@@ -19,6 +20,28 @@ class StorageAdapterTests(unittest.TestCase):
         self.assertTrue(storage.create_download_url('company/order/file/test.pdf', 60).startswith('https://fake-storage/'))
         storage.delete_object('company/order/file/test.pdf')
         with self.assertRaises(FileNotFoundError): storage.verify_uploaded_object('company/order/file/test.pdf', 10)
+
+    def test_modern_supabase_secret_key_uses_apikey_header_only(self):
+        storage = SupabaseStorageAdapter(
+            url='https://project.supabase.co',
+            service_key='sb_secret_test-key',
+            publishable_key='sb_publishable_test-key',
+        )
+        self.assertEqual(storage._headers, {'apikey': 'sb_secret_test-key'})
+
+    def test_legacy_service_role_key_keeps_bearer_header(self):
+        storage = SupabaseStorageAdapter(
+            url='https://project.supabase.co',
+            service_key='legacy-jwt-service-role-key',
+            publishable_key='legacy-anon-key',
+        )
+        self.assertEqual(
+            storage._headers,
+            {
+                'apikey': 'legacy-jwt-service-role-key',
+                'Authorization': 'Bearer legacy-jwt-service-role-key',
+            },
+        )
 
 
 if __name__ == '__main__': unittest.main()
