@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiFetch, clearCsrfToken, setCsrfToken } from './http'
+import { apiFetch, clearCsrfToken, setCsrfToken } from './http'
 
 afterEach(() => { vi.restoreAllMocks(); clearCsrfToken() })
 
