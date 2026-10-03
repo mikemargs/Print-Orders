@@ -12,11 +12,14 @@ async function signIn(page: Page) {
 }
 
 test('online workflow remains readable after an offline reload', async ({ page, context }) => {
+  const suffix = `${Date.now()}-${test.info().retry}`
+  const customerName = `Playwright Customer ${suffix}`
+  const orderDescription = `Offline acceptance order ${suffix}`
   await signIn(page)
 
   await page.getByRole('link', { name: 'Customers' }).click()
   await page.getByRole('link', { name: 'New customer' }).click()
-  await page.getByLabel('Company').fill('Playwright Customer')
+  await page.getByLabel('Company').fill(customerName)
   await page.getByLabel('First name').fill('Pat')
   await page.getByLabel('Last name').fill('Tester')
   await page.getByRole('button', { name: 'Save customer' }).click()
@@ -24,21 +27,21 @@ test('online workflow remains readable after an offline reload', async ({ page, 
 
   await page.getByRole('link', { name: 'Work Orders' }).click()
   await page.getByRole('link', { name: 'New work order' }).click()
-  await page.locator('select[name="customer_id"]').selectOption({ label: 'Playwright Customer' })
-  await page.getByLabel('Description').fill('Offline acceptance order')
+  await page.locator('select[name="customer_id"]').selectOption({ label: customerName })
+  await page.getByLabel('Description').fill(orderDescription)
   await page.getByPlaceholder('Item / service').fill('Yard Sign')
   await page.getByLabel('Unit price').fill('25')
   await page.getByRole('button', { name: 'Save work order' }).click()
   await expect(page).toHaveURL(/\/orders\/[^/]+$/)
 
   await page.getByRole('link', { name: 'Work Orders' }).click()
-  await expect(page.getByText('Offline acceptance order')).toBeVisible()
+  await expect(page.getByText(orderDescription)).toBeVisible()
   await page.evaluate(async () => { await navigator.serviceWorker.ready; return true })
 
   await context.setOffline(true)
   await page.reload()
   await expect(page.getByText(/Offline read-only mode/)).toBeVisible()
-  await expect(page.getByText('Offline acceptance order')).toBeVisible()
+  await expect(page.getByText(orderDescription)).toBeVisible()
   await expect(page.getByRole('link', { name: 'New work order' })).toHaveCount(0)
 })
 
