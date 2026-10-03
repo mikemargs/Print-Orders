@@ -18,7 +18,7 @@ describe('LoginPage', () => {
       return new Response(JSON.stringify({ company:{id:'c',name:'Print Co',code:'PRINT'}, locations:[{id:'l',name:'Sayville',store_number:'5127',timezone:'America/New_York',active:true}], employees:[{id:'e',name:'Alex',role:'employee',location_ids:['l'],active:true}] }), { status: 200, headers: { 'content-type': 'application/json' } })
     })
     render(<SessionProvider><SessionReadyProbe /><LoginPage /></SessionProvider>)
-    expect(await screen.findByTestId('session-state')).toHaveTextContent('ready')
+    expect(await screen.findByText('ready')).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Company code'), { target: { value: 'PRINT' } })
     fireEvent.change(screen.getByLabelText('Company password'), { target: { value: 'secret' } })
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
