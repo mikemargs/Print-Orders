@@ -8,16 +8,4 @@ line-length = 100
 # boundaries around network/UI background workers. Tests adjust sys.path before
 # importing app/client modules, and a few legacy handlers use compact one-line
 # statements; keep Ruff focused on correctness rather than those style forms.
-ignore = [
-    "B008",
-    "BLE001",
-    "DTZ005",
-    "DTZ007",
-    "DTZ011",
-    "E402",
-    "E701",
-    "E702",
-    "FURB157",  # Decimal(str(value)) is intentional to avoid binary-float artifacts.
-    "I001",     # Existing import order includes sys.path bootstrap blocks in tests.
-    "SIM117",   # Nested context managers are kept where they improve test readability.
-]
+ignore = ["B008", "BLE001", "DTZ005", "DTZ007", "DTZ011", "E402", "E701", "E702"]

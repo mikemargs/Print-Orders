@@ -5,7 +5,7 @@ import { ApiError, apiFetch } from '../../api/http'
 import type { Customer, LineItem, WorkOrder } from '../../api/types'
 import { useSession } from '../../auth/SessionContext'
 import { useOnline } from '../../offline/OnlineState'
-import { cacheCustomers, cacheOrders, cachedCustomers, cachedOrder } from '../../offline/db'
+import { cacheOrders, cachedOrder } from '../../offline/db'
 import { AttachmentPanel } from '../files/AttachmentPanel'
 
 type FormValues = {customer_id:string; location_id:string; status:string; priority:string; received_date:string; due_date:string; assigned_to:string; delivery_method:string; po_number:string; description:string; production_notes:string; customer_notes:string; tax_rate:number; deposit:number; discount:number; items:LineItem[]}
@@ -16,7 +16,7 @@ export function OrderEditor() {
   const [customerRows,setCustomers]=useState<Customer[]>([])
   const {register,control,handleSubmit,reset,watch,formState:{isSubmitting}}=useForm<FormValues>({defaultValues:{customer_id:'',location_id:session?.location.id??'',status:'New',priority:'Normal',received_date:today(),due_date:'',assigned_to:'',delivery_method:'Pickup',po_number:'',description:'',production_notes:'',customer_notes:'',tax_rate:0,deposit:0,discount:0,items:[{item_name:'',quantity:1,unit_price:0}]}})
   const fields=useFieldArray({control,name:'items'})
-  useEffect(()=>{if(!online){if(editing&&id)void cachedOrder(id).then(x=>setOfflineOrder(x??null));return}void cachedCustomers().then(setCustomers);void apiFetch<{customers:Customer[]}>('/api/customers?limit=200').then(async x=>{setCustomers(x.customers);await cacheCustomers(x.customers)});if(editing)void apiFetch<WorkOrder>(`/api/orders/${id}`).then(async o=>{setVersion(o.version);reset(o);await cacheOrders([o])}).catch(e=>setError(e instanceof Error?e.message:'Unable to load order'))},[editing,id,reset,online])
+  useEffect(()=>{if(!online){if(editing&&id)void cachedOrder(id).then(x=>setOfflineOrder(x??null));return}void apiFetch<{customers:Customer[]}>('/api/customers?limit=200').then(x=>setCustomers(x.customers));if(editing)void apiFetch<WorkOrder>(`/api/orders/${id}`).then(async o=>{setVersion(o.version);reset(o);await cacheOrders([o])}).catch(e=>setError(e instanceof Error?e.message:'Unable to load order'))},[editing,id,reset,online])
   const items=watch('items'); const subtotal=(items??[]).reduce((sum,x)=>sum+(Number(x.quantity)||0)*(Number(x.unit_price)||0),0)
   const submit=handleSubmit(async values=>{setError('');setConflict(null);try{const saved=editing?await apiFetch<WorkOrder>(`/api/orders/${id}`,{method:'PATCH',body:JSON.stringify({...values,version})}):await apiFetch<WorkOrder>('/api/orders',{method:'POST',body:JSON.stringify(values)});await cacheOrders([saved]);navigate(`/orders/${saved.id}`)}catch(e){if(e instanceof ApiError&&e.status===409){setConflict(e.current as WorkOrder);setError('This work order changed on another device. Review the current server version before trying again.')}else setError(e instanceof Error?e.message:'Save failed')}})
   async function remove(){if(!editing||!id||!window.confirm('Delete this work order?'))return;setDeleting(true);setError('');try{await apiFetch(`/api/orders/${id}`,{method:'DELETE',body:JSON.stringify({version})});navigate('/orders')}catch(e){setError(e instanceof Error?e.message:'Delete failed')}finally{setDeleting(false)}}

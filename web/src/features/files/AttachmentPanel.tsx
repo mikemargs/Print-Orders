@@ -16,7 +16,7 @@ export function AttachmentPanel({orderId}:{orderId:string}){
     uppy.use(Tus,{endpoint:auth.tus_endpoint,chunkSize:auth.chunk_size,uploadDataDuringCreation:true,removeFingerprintOnSuccess:true,retryDelays:[0,3000,5000,10000,20000],headers:{apikey:auth.publishable_key,'x-signature':auth.token},allowedMetaFields:['bucketName','objectName','contentType']})
     uppy.addFile({name:file.name,type:file.type,data:file,meta:{bucketName:auth.bucket,objectName:auth.object_key,contentType:file.type||'application/octet-stream'}})
     uppy.on('upload-progress',(_file,p)=>setProgress(`${Math.round(((p.bytesUploaded??0)/(p.bytesTotal||1))*100)}% uploaded`))
-    const result=await uppy.upload(); if(!result)throw new Error('Upload did not return a result'); const failed=result.failed??[]; if(failed.length)throw failed[0]?.error??new Error('Upload failed')
+    const result=await uppy.upload(); if(result.failed?.length)throw result.failed[0].error??new Error('Upload failed')
     await apiFetch(`/api/orders/${orderId}/files/finalize`,{method:'POST',body:JSON.stringify({attachment_id:auth.attachment.id})});setProgress('Upload complete');await refresh()
   }catch(e){setError(e instanceof Error?e.message:'Upload failed');setProgress('')}finally{uppy.destroy()}}
   if(!online)return <div className="panel"><h2>Artwork & files</h2><p className="muted">Artwork is not cached offline. Reconnect to upload, download, or delete files.</p></div>
