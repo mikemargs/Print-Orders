@@ -82,6 +82,9 @@ def main() -> None:
             if updated.version != 2:
                 raise AssertionError(f"Expected version 2, got {updated.version}")
 
+            # SessionLocal intentionally disables autoflush, so persist the final
+            # pending SyncEvent before asserting database-visible event count.
+            db.flush()
             events = db.scalar(
                 select(func.count()).select_from(SyncEvent).where(
                     SyncEvent.company_id == company_id
