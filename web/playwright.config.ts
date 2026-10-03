@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import './scripts/prepare-e2e.mjs'
 
 export default defineConfig({
   testDir: './e2e',
