@@ -1,128 +1,113 @@
 # Deployment Guide
 
-This guide separates the one-time server deployment from the installation performed at each store.
+The production design uses one Render Docker web service plus Supabase Postgres and private Supabase Storage. The same container serves the FastAPI API and compiled React PWA, so browser authentication remains same-origin. Docker Compose remains available for local development or self-hosted testing.
 
-## 1. Choose the central server
+## 1. Create the Supabase project
 
-For production, use a reliable cloud virtual machine or container host with:
+Create a Supabase project and keep the database password in your password manager. In Storage, create a **private** bucket named `print-artwork` unless you plan to use a different `SUPABASE_STORAGE_BUCKET` value.
 
-- A public IP address
-- A domain or subdomain, such as `orders.yourdomain.com`
-- Docker and Docker Compose
-- At least 2 GB RAM
-- Persistent disk storage
-- Inbound ports 80 and 443
-- Automated server snapshots or an external backup destination
+Collect these values for the Render service:
 
-A computer inside one store is acceptable for testing, but it is a poor production server: power loss, router changes, Windows updates, or store internet outages would disconnect every location.
+- PostgreSQL connection string for `DATABASE_URL`
+- Project URL for `SUPABASE_URL`
+- Server-only service-role key for `SUPABASE_SERVICE_ROLE_KEY`
+- Publishable/anon key for `SUPABASE_PUBLISHABLE_KEY`
+- Private bucket name for `SUPABASE_STORAGE_BUCKET`
 
-## 2. Configure DNS and HTTPS
+The service-role key must never be placed in the React source, a desktop configuration file, or a public environment variable.
 
-Create an `A` record for the chosen domain pointing to the server's public IP address. The included Caddy gateway automatically requests and renews HTTPS certificates once DNS is correct and ports 80/443 reach the server.
+For the database connection, a long-running server can use the Supabase direct connection when the host supports IPv6. If the host requires IPv4, use the Supavisor **session-mode** connection string from Supabase **Connect**. For this application, use the SQLAlchemy psycopg scheme `postgresql+psycopg://` while preserving the supplied username, host, port, database, and password.
 
-Never expose the internal API or PostgreSQL port directly to the internet. Store clients should connect only to the HTTPS address.
+## 2. Deploy to Render
 
-## 3. Create secure environment settings
+The root `render.yaml` defines the production Docker service. In Render, create a Blueprint from this repository and provide each environment variable marked `sync: false`.
 
-On the server, copy `server/.env.example` to `.env` in the project root. Replace every placeholder.
+Required production values include:
 
-Generate a JWT secret with:
+- `DATABASE_URL`
+- `BOOTSTRAP_COMPANY_CODE`
+- `BOOTSTRAP_COMPANY_PASSWORD`
+- `BOOTSTRAP_ADMIN_PIN`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_PUBLISHABLE_KEY`
 
-```text
-python -c "import secrets; print(secrets.token_urlsafe(48))"
-```
+`JWT_SECRET` is supplied as a secret Render environment value (`sync: false`). Generate a long random value before deployment. Production also sets `APP_ENV=production`, `WEB_COOKIE_SECURE=true`, and `STORAGE_BACKEND=supabase`.
 
-Recommended values:
+The container runs `python migrate_database.py` before starting Uvicorn. On an empty database this applies every Alembic migration. On a database created by the original pre-Alembic release, the migration bootstrap detects the existing schema, stamps the frozen baseline revision, then applies later upgrades.
 
-- `POSTGRES_PASSWORD`: at least 24 URL-safe random characters (letters, numbers, `-`, and `_`)
-- `JWT_SECRET`: output of the command above
-- `BOOTSTRAP_COMPANY_CODE`: a short internal code employees can recognize
-- `BOOTSTRAP_COMPANY_PASSWORD`: a unique password not used anywhere else
-- `BOOTSTRAP_ADMIN_PIN`: at least six digits; avoid birthdays and store numbers
-- `SITE_ADDRESS`: the full HTTPS domain, such as `https://orders.yourdomain.com`
+Use `/api/health` as the Render health-check path. It performs a real database probe, so an unavailable database makes the service unhealthy rather than reporting a false OK.
 
-The bootstrap values create the company, three locations, and first administrator only when the database is empty. Changing them later does not overwrite the live database.
+## 3. Verify the web application
 
-## 4. Start the server
+After deployment, open the Render HTTPS address. The browser workflow is:
 
-From the project root:
+1. Enter the shared company code and company password.
+2. Select the store location.
+3. Select the employee and enter that employee's PIN.
+4. Confirm the Dashboard, Customers, Work Orders, Reports (Supervisor/Admin), and Employees (Admin) match the signed-in role.
+
+Browser authentication uses secure HttpOnly cookies. No bearer token is written to `localStorage` or `sessionStorage`.
+
+## 4. Artwork uploads
+
+Artwork metadata is authorized by FastAPI, but large file bytes go directly from the browser to the private Supabase Storage bucket using signed resumable TUS uploads. The current application default limit is 250 MiB (`262144000` bytes) and can be changed with `MAX_UPLOAD_BYTES`.
+
+For a representative production acceptance test, upload a large PDF or print file, interrupt connectivity during the upload, and confirm the resumable upload can continue rather than restarting from zero.
+
+## 5. Browser outage behavior
+
+The PWA caches the application shell plus a bounded local read cache of recently loaded work orders. During an outage:
+
+- cached work orders and customers can be listed and opened read-only;
+- the UI displays the last cache/sync time;
+- order/customer edits are disabled;
+- reports and employee administration are disabled;
+- artwork upload/download/delete is disabled;
+- no browser write queue is created.
+
+The Windows desktop application retains its separate offline create/edit synchronization workflow.
+
+## 6. Windows installer
+
+GitHub Actions workflow `.github/workflows/windows-installer.yml` builds the Windows application with PyInstaller and compiles `installer/PrintOrderManager.iss` with Inno Setup. The workflow uploads `PrintOrderManager-MultiStore-Setup.exe` as a private Actions artifact.
+
+For a local Windows build, `client/build_windows_exe.bat` still creates the executable. Compile the Inno Setup file after that if you need the installer.
+
+At first desktop launch:
+
+1. Enter the production HTTPS server address.
+2. Enter the company code and password.
+3. Select that computer's store location.
+4. Sign in with an employee PIN.
+
+The long-lived desktop company token is stored with Windows Credential Manager rather than inside `client_config.json`.
+
+## 7. Legacy data import
+
+Before importing an old store database, make a copy of it. Import one store at a time with `client/import_legacy.bat`, synchronize completely, then compare customer/order counts before moving to the next store.
+
+Do not operate the legacy and new systems as separate live sources of truth after migration.
+
+## 8. Local Docker environment
+
+For local/self-hosted testing, copy `server/.env.example` to a project-root `.env` and adjust values. For plain HTTP localhost testing use `APP_ENV=development`, `WEB_COOKIE_SECURE=false`, and `STORAGE_BACKEND=fake`; switch those to production-safe values before any internet-accessible self-hosted deployment. Docker Compose supplies its own PostgreSQL container and Caddy gateway:
 
 ```text
 docker compose up -d --build
-docker compose ps
 ```
 
-Confirm the public address responds:
+The API/web image is built from the repository root because the Docker build needs both `server/` and `web/`.
 
-```text
-https://orders.yourdomain.com/api/health
-```
+## 9. Release gate
 
-The response should contain `"status":"ok"`.
+Before a production release, require these checks to pass:
 
-The interactive API reference is available at `/api/docs`. It does not bypass authentication.
-
-## 5. Build the Windows installer
-
-On a Windows 11 computer with Python 3 installed:
-
-1. Open the `client` folder.
-2. Double-click `build_windows_exe.bat`.
-3. Confirm `client\dist\PrintOrderManager-MultiStore.exe` was created.
-4. Install Inno Setup if a full installer is desired.
-5. Open and compile `installer\PrintOrderManager.iss`.
-6. The finished installer will be in `installer\output`.
-
-Alternatively, place the project in a private GitHub repository and run the included **Build Windows Installer** workflow. Download the resulting private build artifact. Do not publish an installer containing business configuration or customer data.
-
-## 6. Install at each store
-
-Run the installer once on each approved Windows computer. At first launch:
-
-1. Enter the public HTTPS server address.
-2. Enter the shared company code and password.
-3. Select the computer's store location.
-4. Select the administrator and enter the administrator PIN.
-5. Open **Employees** and add the store staff.
-
-The shared company password connects the installation. Employees then use their own PINs for identity, permissions, and activity tracking.
-
-## 7. Add employee access
-
-Administrators can create employees with one or more assigned stores.
-
-| Role | Intended access |
-| --- | --- |
-| Employee | Customers, new orders, line items, production changes, printing |
-| Supervisor | Employee capabilities plus deletion, store reports, and conflict override |
-| Administrator | All stores, all reports, employee access, deletion, and conflict override |
-
-Use a separate employee profile for each person. Do not have multiple people share an employee PIN.
-
-## 8. Import the original application
-
-Import from the computer containing the existing local database:
-
-1. Install and connect the multi-store client first.
-2. Close both applications.
-3. Back up `%LOCALAPPDATA%\PrintOrderManager\print_orders.db`.
-4. Open the new `client` folder and double-click `import_legacy.bat`.
-5. Enter the store number that owns those orders.
-6. Open the multi-store client as a Supervisor or Administrator and click **Sync Now**.
-7. Confirm order counts before removing the old application.
-
-The importer refuses to import the exact same database twice on the same computer.
-
-## 9. Rollout order
-
-Use this sequence to reduce duplicate or conflicting data:
-
-1. Deploy and test the server.
-2. Configure the Administrator and employee profiles.
-3. Back up every old store database.
-4. Import one store at a time and allow synchronization to finish.
-5. Verify customers, active orders, totals, and reports.
-6. Install the client on remaining workstations.
-7. Make the old system read-only after sign-off.
-
-Do not run the old and new systems as separate live order systems after migration.
+- GitHub `Application CI`
+- Windows installer workflow
+- PostgreSQL migration rehearsal
+- browser sign-in/customer/order Playwright smoke test
+- three-store authorization check
+- desktop disconnect/reconnect synchronization test
+- database restore exercise
+- representative large artwork upload/resume test

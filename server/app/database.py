@@ -2,17 +2,20 @@ from __future__ import annotations
 
 import os
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     DateTime,
-    Float,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
+    UniqueConstraint,
     create_engine,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
@@ -67,6 +70,7 @@ class Employee(Base):
     role: Mapped[str] = mapped_column(String(20), default="employee")
     location_ids: Mapped[list] = mapped_column(JSON, default=list)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    auth_version: Mapped[int] = mapped_column(Integer, default=1)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
@@ -120,13 +124,30 @@ class WorkOrder(Base):
     artwork_path: Mapped[str] = mapped_column(Text, default="")
     production_notes: Mapped[str] = mapped_column(Text, default="")
     customer_notes: Mapped[str] = mapped_column(Text, default="")
-    tax_rate: Mapped[float] = mapped_column(Float, default=0)
-    deposit: Mapped[float] = mapped_column(Float, default=0)
-    discount: Mapped[float] = mapped_column(Float, default=0)
-    subtotal: Mapped[float] = mapped_column(Float, default=0)
-    total: Mapped[float] = mapped_column(Float, default=0)
-    balance: Mapped[float] = mapped_column(Float, default=0)
+    tax_rate: Mapped[Decimal] = mapped_column(Numeric(7, 4), default=0)
+    deposit: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    discount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     items: Mapped[list] = mapped_column(JSON, default=list)
+
+
+class ArtworkFile(Base):
+    __tablename__ = "artwork_files"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    work_order_id: Mapped[str] = mapped_column(ForeignKey("work_orders.id"), index=True)
+    object_key: Mapped[str] = mapped_column(Text, unique=True)
+    original_filename: Mapped[str] = mapped_column(String(255))
+    mime_type: Mapped[str] = mapped_column(String(160), default="application/octet-stream")
+    size_bytes: Mapped[int] = mapped_column(BigInteger)
+    uploaded_by: Mapped[str] = mapped_column(String(36), default="")
+    checksum: Mapped[str] = mapped_column(String(128), default="")
+    active: Mapped[bool] = mapped_column(Boolean, default=False)
+    deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
 
 
 class SyncEvent(Base):
@@ -142,7 +163,9 @@ class SyncEvent(Base):
 
 class ProcessedOperation(Base):
     __tablename__ = "processed_operations"
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    __table_args__ = (UniqueConstraint("company_id", "operation_id", name="uq_processed_operation_company_operation"),)
+    row_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    operation_id: Mapped[str] = mapped_column(String(36))
     company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
     result: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

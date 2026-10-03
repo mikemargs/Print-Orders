@@ -5,5 +5,7 @@ line-length = 100
 [tool.ruff.lint]
 # FastAPI's dependency syntax intentionally calls Depends in defaults. The
 # desktop client intentionally uses local calendar dates and broad exception
-# boundaries around network/UI background workers.
-ignore = ["B008", "BLE001", "DTZ005", "DTZ007", "DTZ011"]
+# boundaries around network/UI background workers. Tests adjust sys.path before
+# importing app/client modules, and a few legacy handlers use compact one-line
+# statements; keep Ruff focused on correctness rather than those style forms.
+ignore = ["B008", "BLE001", "DTZ005", "DTZ007", "DTZ011", "E402", "E701", "E702"]

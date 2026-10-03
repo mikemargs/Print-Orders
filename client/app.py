@@ -753,14 +753,14 @@ class PrintOrderApp(tk.Tk):
             "Sync Issues",
             "Review records changed at more than one store before synchronization.",
         )
-        cols = ("type", "record", "message", "created")
+        cols = ("category", "type", "record", "message", "created")
         self.conflict_tree = ttk.Treeview(
             self.content, columns=cols, show="headings", selectmode="browse"
         )
         for col, title, width in zip(
             cols,
-            ("Record Type", "Record ID", "Reason", "Detected"),
-            (120, 280, 450, 180),
+            ("Issue", "Record Type", "Record ID", "Reason", "Detected"),
+            (110, 120, 250, 400, 170),
         ):
             self.conflict_tree.heading(col, text=title)
             self.conflict_tree.column(col, width=width)
@@ -771,6 +771,7 @@ class PrintOrderApp(tk.Tk):
                 "end",
                 iid=str(row["id"]),
                 values=(
+                    row.get("category", "conflict").title(),
                     row["entity_type"].title(),
                     row["entity_id"],
                     row["message"],
@@ -1080,7 +1081,7 @@ class EmployeeLoginDialog(tk.Toplevel):
                 data = self.api.employee_login(
                     employee["id"], self.pin.get(), self.config["location_id"]
                 )
-                self.store.cache_employee_pin(employee["id"], self.pin.get())
+                self.store.cache_employee_pin(employee["id"], self.pin.get(), int(data["employee"].get("auth_version", 1)))
                 self.result = (data["employee"], True, self.pin.get())
                 self.destroy()
                 return

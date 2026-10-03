@@ -15,7 +15,9 @@ services:
       retries: 10
 
   api:
-    build: ./server
+    build:
+      context: .
+      dockerfile: server/Dockerfile
     restart: unless-stopped
     depends_on:
       database:
@@ -28,6 +30,16 @@ services:
       BOOTSTRAP_COMPANY_PASSWORD: ${BOOTSTRAP_COMPANY_PASSWORD}
       BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME}
       BOOTSTRAP_ADMIN_PIN: ${BOOTSTRAP_ADMIN_PIN}
+      APP_ENV: ${APP_ENV:-development}
+      WEB_COOKIE_SECURE: ${WEB_COOKIE_SECURE:-false}
+      LOGIN_MAX_ATTEMPTS: ${LOGIN_MAX_ATTEMPTS:-5}
+      LOGIN_WINDOW_SECONDS: ${LOGIN_WINDOW_SECONDS:-900}
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-fake}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-262144000}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:-}
+      SUPABASE_STORAGE_BUCKET: ${SUPABASE_STORAGE_BUCKET:-print-artwork}
     expose:
       - "8000"
 
