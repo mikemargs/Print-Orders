@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ApiError, apiFetch, clearCsrfToken, getCsrfToken, setCsrfToken } from '../api/http'
 import type { SessionInfo } from '../api/types'
 import {
@@ -23,6 +23,7 @@ const Context = createContext<SessionState | null>(null)
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSessionState] = useState<SessionInfo | null>(null)
   const [loading, setLoading] = useState(true)
+  const mounted = useRef(true)
 
   const setSession = useCallback((next: SessionInfo) => {
     setCsrfToken(next.csrf_token)
@@ -85,7 +86,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         throw error
       }
     } finally {
-      setLoading(false)
+      if (mounted.current) setLoading(false)
     }
   }, [finishPendingLogout, setSession])
 
@@ -110,10 +111,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [session])
 
   useEffect(() => {
+    mounted.current = true
     void refresh()
     const onOnline = () => void refresh()
     window.addEventListener('online', onOnline)
-    return () => window.removeEventListener('online', onOnline)
+    return () => {
+      mounted.current = false
+      window.removeEventListener('online', onOnline)
+    }
   }, [refresh])
 
   const value = useMemo(
