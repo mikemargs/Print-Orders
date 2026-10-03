@@ -22,6 +22,7 @@ class MigrationTests(unittest.TestCase):
                 env=env,
                 capture_output=True,
                 text=True,
+                check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             with closing(sqlite3.connect(db_path)) as conn:
@@ -32,12 +33,26 @@ class MigrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             db_path = Path(folder) / "legacy.db"
             env = dict(os.environ, DATABASE_URL=f"sqlite:///{db_path}")
-            first = subprocess.run([sys.executable, "-m", "alembic", "-c", str(SERVER / "alembic.ini"), "upgrade", "0001_baseline"], cwd=SERVER, env=env, capture_output=True, text=True)
+            first = subprocess.run(
+                [sys.executable, "-m", "alembic", "-c", str(SERVER / "alembic.ini"), "upgrade", "0001_baseline"],
+                cwd=SERVER,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
             with closing(sqlite3.connect(db_path)) as conn:
                 conn.execute("DROP TABLE alembic_version")
                 conn.commit()
-            upgraded = subprocess.run([sys.executable, str(SERVER / "migrate_database.py")], cwd=SERVER, env=env, capture_output=True, text=True)
+            upgraded = subprocess.run(
+                [sys.executable, str(SERVER / "migrate_database.py")],
+                cwd=SERVER,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             self.assertEqual(upgraded.returncode, 0, upgraded.stdout + upgraded.stderr)
             with closing(sqlite3.connect(db_path)) as conn:
                 employee_cols = {row[1] for row in conn.execute("PRAGMA table_info(employees)")}
