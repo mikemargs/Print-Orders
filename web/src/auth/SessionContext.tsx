@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ApiError, apiFetch, clearCsrfToken, getCsrfToken, setCsrfToken } from '../api/http'
 import type { SessionInfo } from '../api/types'
 import {
@@ -24,13 +24,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSessionState] = useState<SessionInfo | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const setSession = (next: SessionInfo) => {
+  const setSession = useCallback((next: SessionInfo) => {
     setCsrfToken(next.csrf_token)
     setSessionState(next)
     void cacheSessionInfo(next)
-  }
+  }, [])
 
-  const finishPendingLogout = async () => {
+  const finishPendingLogout = useCallback(async () => {
     const pending = await pendingLogoutCsrf()
     if (!pending) return false
 
@@ -55,9 +55,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     clearCsrfToken()
     setSessionState(null)
     return true
-  }
+  }, [])
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
       if (await finishPendingLogout()) {
         setSessionState(null)
@@ -87,9 +87,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [finishPendingLogout, setSession])
 
-  const logout = async (clearCache = true) => {
+  const logout = useCallback(async (clearCache = true) => {
     const csrf = session?.csrf_token || getCsrfToken()
     let deferServerLogout = !navigator.onLine
 
@@ -107,18 +107,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setSessionState(null)
     if (clearCache) await clearOfflineCache()
     if (deferServerLogout && csrf) await setPendingLogoutCsrf(csrf)
-  }
+  }, [session])
 
   useEffect(() => {
     void refresh()
     const onOnline = () => void refresh()
     window.addEventListener('online', onOnline)
     return () => window.removeEventListener('online', onOnline)
-  }, [])
+  }, [refresh])
 
   const value = useMemo(
     () => ({ session, loading, refresh, setSession, logout }),
-    [session, loading],
+    [session, loading, refresh, setSession, logout],
   )
   return <Context.Provider value={value}>{children}</Context.Provider>
 }
