@@ -14,12 +14,12 @@ describe('apiFetch', () => {
   })
   it('exposes the current server representation for 409 conflicts', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ detail: 'Version conflict', current: { version: 3 } }), { status: 409, headers: { 'content-type': 'application/json' } }))
-    await expect(apiFetch('/api/customers/id', { method: 'PATCH', body: '{}' })).rejects.toMatchObject({ status: 409, current: { version: 3 } })
+    await expect(apiFetch<unknown>('/api/customers/id', { method: 'PATCH', body: '{}' })).rejects.toMatchObject({ status: 409, current: { version: 3 } })
   })
   it('converts network failures to status zero and signals offline mode', async () => {
     const listener=vi.fn(); window.addEventListener('print-orders-offline',listener,{once:true})
     vi.spyOn(globalThis,'fetch').mockRejectedValue(new TypeError('network down'))
-    await expect(apiFetch('/api/orders')).rejects.toMatchObject({status:0})
+    await expect(apiFetch<unknown>('/api/orders')).rejects.toMatchObject({status:0})
     expect(listener).toHaveBeenCalledOnce()
   })
 })
