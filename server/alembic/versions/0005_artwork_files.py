@@ -1,6 +1,6 @@
 """Add artwork attachment metadata."""
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "0005_artwork_files"
 down_revision = "0004_fixed_precision_money"

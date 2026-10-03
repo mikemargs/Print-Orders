@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import os
 import uuid
-from datetime import datetime
-from decimal import Decimal
 from collections import Counter, defaultdict
 from contextlib import asynccontextmanager
+from datetime import datetime
+from decimal import Decimal
 from typing import Any, Literal
 
 import jwt
@@ -15,7 +15,6 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from .auth_context import AuthContext, resolve_employee_context
-from .hybrid_auth import hybrid_admin, hybrid_admin_mutation, hybrid_supervisor
 from .database import (
     Company,
     Customer,
@@ -27,18 +26,35 @@ from .database import (
     WorkOrder,
     utcnow,
 )
-from .security import (clear_login_failures, decode_token, hash_secret, login_allowed, make_token, record_login_failure, verify_secret)
-from .services.common import Conflict as ServiceConflict, Forbidden as ServiceForbidden, Invalid as ServiceInvalid
-from .routers.web_auth import router as web_auth_router
-from .routers.web import router as web_router
+from .hybrid_auth import hybrid_admin, hybrid_admin_mutation, hybrid_supervisor
 from .routers.customers import router as customers_router
-from .routers.orders import router as orders_router
 from .routers.files import router as files_router
+from .routers.orders import router as orders_router
+from .routers.web import router as web_router
+from .routers.web_auth import router as web_auth_router
+from .security import (
+    clear_login_failures,
+    decode_token,
+    hash_secret,
+    login_allowed,
+    make_token,
+    record_login_failure,
+    verify_secret,
+)
+from .services.common import Conflict as ServiceConflict
+from .services.common import Forbidden as ServiceForbidden
+from .services.common import Invalid as ServiceInvalid
 from .services.records import (
     create_or_update_customer,
     create_or_update_order,
+)
+from .services.records import (
     delete_customer as service_delete_customer,
+)
+from .services.records import (
     delete_order as service_delete_order,
+)
+from .services.records import (
     serialize_record as service_serialize_record,
 )
 
@@ -87,8 +103,8 @@ class EmployeeUpdate(BaseModel):
 class LineItemPayload(BaseModel):
     model_config = ConfigDict(extra="allow")
     item_name: str = Field(default="", max_length=200)
-    quantity: Decimal = Field(default=Decimal("0"), ge=0)
-    unit_price: Decimal = Field(default=Decimal("0"), ge=0)
+    quantity: Decimal = Field(default=Decimal(0), ge=0)
+    unit_price: Decimal = Field(default=Decimal(0), ge=0)
 
 
 class OrderMutationPayload(BaseModel):
@@ -443,7 +459,7 @@ def report_summary(
             select(Location).where(Location.company_id == claims["company_id"])
         ).all()
     }
-    grouped: dict[str, dict] = defaultdict(lambda: {"orders": 0, "sales": Decimal("0"), "balance": Decimal("0")})
+    grouped: dict[str, dict] = defaultdict(lambda: {"orders": 0, "sales": Decimal(0), "balance": Decimal(0)})
     statuses = Counter()
     for order in orders:
         key = order.location_id
@@ -453,8 +469,8 @@ def report_summary(
         statuses[order.status] += 1
     return {
         "total_orders": len(orders),
-        "total_sales": float(sum((x.total for x in orders), Decimal("0")).quantize(Decimal("0.01"))),
-        "outstanding_balance": float(sum((x.balance for x in orders), Decimal("0")).quantize(Decimal("0.01"))),
+        "total_sales": float(sum((x.total for x in orders), Decimal(0)).quantize(Decimal("0.01"))),
+        "outstanding_balance": float(sum((x.balance for x in orders), Decimal(0)).quantize(Decimal("0.01"))),
         "by_status": dict(statuses),
         "by_location": [
             {

@@ -13,11 +13,11 @@ os.environ.setdefault("DATABASE_URL", f"sqlite:///{Path(WEB_TEMP.name) / 'web-se
 os.environ.setdefault("JWT_SECRET", "web-session-test-secret-longer-than-thirty-two-chars")
 sys.path.insert(0, str(ROOT / "server"))
 
-from fastapi.testclient import TestClient
-from sqlalchemy import select
 from app.database import Base, Company, Employee, Location, SessionLocal, engine
 from app.main import app
 from app.security import hash_secret
+from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 
 class WebSessionTests(unittest.TestCase):

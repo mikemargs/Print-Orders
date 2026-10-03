@@ -19,9 +19,9 @@ os.environ["BOOTSTRAP_ADMIN_PIN"] = "246810"
 os.environ["WEB_COOKIE_SECURE"] = "0"
 sys.path.insert(0, str(ROOT / "server"))
 
-from app.main import app
 import app.main as main_module
 from app.database import Base, Company, Customer, Employee, Location, SessionLocal, engine
+from app.main import app
 from app.security import hash_secret, make_token
 from fastapi.testclient import TestClient
 
@@ -144,8 +144,8 @@ class ServerIntegrationTests(unittest.TestCase):
         self.assertEqual(demoted.status_code, 400, demoted.text)
 
     def test_last_admin_guard_uses_postgresql_row_lock(self):
-        from sqlalchemy.dialects import postgresql
         from app.main import active_admin_lock_query
+        from sqlalchemy.dialects import postgresql
 
         statement = active_admin_lock_query("company-1")
         sql = str(statement.compile(dialect=postgresql.dialect()))
@@ -328,6 +328,7 @@ class ServerIntegrationTests(unittest.TestCase):
 
     def test_company_login_is_throttled_after_repeated_failures(self):
         import os
+
         from app.security import reset_login_throttle
         reset_login_throttle()
         old = os.environ.get("LOGIN_MAX_ATTEMPTS")

@@ -26,6 +26,7 @@ if __name__ == '__main__': unittest.main()
 class StorageConfigurationTests(unittest.TestCase):
     def test_production_requires_explicit_non_fake_storage(self):
         import os
+
         from app.storage import get_storage, set_storage
         old_env = os.environ.get('APP_ENV')
         old_backend = os.environ.get('STORAGE_BACKEND')

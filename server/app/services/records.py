@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -176,26 +176,26 @@ def validate_order_access(db: Session, auth: AuthContext, customer_id: str, loca
 
 
 def calculate_order(order: WorkOrder) -> None:
-    cents = Decimal("0.01"); subtotal = Decimal("0"); clean_items = []
+    cents = Decimal("0.01"); subtotal = Decimal(0); clean_items = []
     for item in order.items or []:
         clean = dict(item); quantity = Decimal(str(clean.get("quantity",0) or 0)); unit_price = Decimal(str(clean.get("unit_price",0) or 0))
         if quantity < 0 or unit_price < 0: raise Invalid("Order item quantity and price cannot be negative")
         clean["quantity"] = float(quantity); clean["unit_price"] = float(unit_price); clean_items.append(clean); subtotal += quantity * unit_price
     order.items = clean_items
-    order.tax_rate = max(Decimal(str(order.tax_rate or 0)), Decimal("0"))
-    order.discount = max(Decimal(str(order.discount or 0)), Decimal("0"))
-    order.deposit = max(Decimal(str(order.deposit or 0)), Decimal("0"))
+    order.tax_rate = max(Decimal(str(order.tax_rate or 0)), Decimal(0))
+    order.discount = max(Decimal(str(order.discount or 0)), Decimal(0))
+    order.deposit = max(Decimal(str(order.deposit or 0)), Decimal(0))
     if not all(value.is_finite() for value in (subtotal, order.tax_rate, order.discount, order.deposit)):
         raise Invalid("Order monetary values must be finite numbers")
     if subtotal > MAX_MONEY:
         raise Invalid("Order total exceeds the supported maximum")
-    taxable = max(subtotal - order.discount, Decimal("0"))
-    raw_total = taxable * (Decimal("1") + order.tax_rate / Decimal("100"))
+    taxable = max(subtotal - order.discount, Decimal(0))
+    raw_total = taxable * (Decimal(1) + order.tax_rate / Decimal(100))
     if raw_total > MAX_MONEY:
         raise Invalid("Order total exceeds the supported maximum")
     order.subtotal = subtotal.quantize(cents, rounding=ROUND_HALF_UP)
     order.total = raw_total.quantize(cents, rounding=ROUND_HALF_UP)
-    order.balance = max(order.total - order.deposit, Decimal("0")).quantize(cents, rounding=ROUND_HALF_UP)
+    order.balance = max(order.total - order.deposit, Decimal(0)).quantize(cents, rounding=ROUND_HALF_UP)
     if any(value > MAX_MONEY for value in (order.subtotal, order.total, order.balance)):
         raise Invalid("Order total exceeds the supported maximum")
 

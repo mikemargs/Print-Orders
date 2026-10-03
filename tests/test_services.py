@@ -2,6 +2,7 @@ import sys
 import unittest
 import uuid
 from pathlib import Path
+
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 
@@ -47,23 +48,22 @@ class ServiceTests(unittest.TestCase):
         with self.Session() as db:
             create_or_update_customer(db, self.auth, cid, 0, {'company': 'C'})
             for field in ('tax_rate', 'deposit', 'discount'):
-                with self.subTest(field=field):
-                    with self.assertRaises(Invalid):
-                        create_or_update_order(
-                            db,
-                            self.auth,
-                            str(uuid.uuid4()),
-                            0,
-                            {
-                                'customer_id': cid,
-                                'location_id': self.location,
-                                'status': 'New',
-                                'priority': 'Normal',
-                                'received_date': '2026-10-03',
-                                field: 'not-a-number',
-                                'items': [],
-                            },
-                        )
+                with self.subTest(field=field), self.assertRaises(Invalid):
+                    create_or_update_order(
+                        db,
+                        self.auth,
+                        str(uuid.uuid4()),
+                        0,
+                        {
+                            'customer_id': cid,
+                            'location_id': self.location,
+                            'status': 'New',
+                            'priority': 'Normal',
+                            'received_date': '2026-10-03',
+                            field: 'not-a-number',
+                            'items': [],
+                        },
+                    )
 
     def test_services_reject_values_beyond_postgresql_numeric_precision(self):
         with self.Session() as db:
@@ -117,11 +117,10 @@ class ServiceTests(unittest.TestCase):
                 "received_date": "2026-10-03",
             }
             for field, value in (("tax_rate", "NaN"), ("deposit", "Infinity"), ("discount", "NaN")):
-                with self.subTest(field=field):
-                    with self.assertRaises(Invalid):
-                        create_or_update_order(
-                            db, self.auth, str(uuid.uuid4()), 0, {**base, field: value, "items": []}
-                        )
+                with self.subTest(field=field), self.assertRaises(Invalid):
+                    create_or_update_order(
+                        db, self.auth, str(uuid.uuid4()), 0, {**base, field: value, "items": []}
+                    )
             with self.assertRaises(Invalid):
                 create_or_update_order(
                     db,

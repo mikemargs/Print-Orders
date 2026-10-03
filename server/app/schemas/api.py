@@ -1,6 +1,9 @@
 from __future__ import annotations
+
 from decimal import Decimal
+
 from pydantic import BaseModel, ConfigDict, Field
+
 
 class VersionBody(BaseModel):
     version: int = Field(ge=1)
@@ -51,9 +54,9 @@ class OrderCreate(BaseModel):
     artwork_path: str = ''
     production_notes: str = ''
     customer_notes: str = ''
-    tax_rate: Decimal = Decimal('0')
-    deposit: Decimal = Decimal('0')
-    discount: Decimal = Decimal('0')
+    tax_rate: Decimal = Decimal(0)
+    deposit: Decimal = Decimal(0)
+    discount: Decimal = Decimal(0)
     items: list[dict] = Field(default_factory=list)
 
 class OrderUpdate(BaseModel):

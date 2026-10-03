@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
+
 from ..database import Customer
 from ..schemas.api import CustomerCreate, CustomerUpdate, VersionBody
 from ..services.common import Conflict, Forbidden, Invalid

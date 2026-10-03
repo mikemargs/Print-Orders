@@ -9,11 +9,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "server"))
 
-from sqlalchemy import func, select
-
 from app.auth_context import AuthContext
 from app.database import Company, Location, SessionLocal, SyncEvent, engine
 from app.services.records import create_or_update_customer, create_or_update_order
+from sqlalchemy import func, select
 
 
 def main() -> None:

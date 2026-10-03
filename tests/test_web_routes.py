@@ -8,8 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 os.environ.setdefault("JWT_SECRET", "route-test-secret-that-is-longer-than-thirty-two")
 sys.path.insert(0, str(ROOT / "server"))
 
-from fastapi.testclient import TestClient
 from app.main import app
+from fastapi.testclient import TestClient
 
 
 class WebRouteTests(unittest.TestCase):

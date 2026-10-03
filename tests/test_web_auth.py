@@ -8,13 +8,12 @@ ROOT = Path(__file__).resolve().parents[1]
 os.environ.setdefault("JWT_SECRET", "test-secret-that-is-longer-than-thirty-two-characters")
 sys.path.insert(0, str(ROOT / "server"))
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
 from app.auth_context import resolve_employee_context
 from app.database import Base, Company, Employee, Location
 from app.security import hash_secret
 from fastapi import HTTPException
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 
 class AuthContextTests(unittest.TestCase):
@@ -48,9 +47,8 @@ class AuthContextTests(unittest.TestCase):
             self.assertEqual(context.role, "supervisor")
 
     def test_context_rejects_auth_version_mismatch(self):
-        with self.Session() as db:
-            with self.assertRaises(HTTPException) as caught:
-                resolve_employee_context(db, self.claims(auth_version=2))
+        with self.Session() as db, self.assertRaises(HTTPException) as caught:
+            resolve_employee_context(db, self.claims(auth_version=2))
         self.assertEqual(caught.exception.status_code, 401)
 
     def test_context_rejects_inactive_company(self):

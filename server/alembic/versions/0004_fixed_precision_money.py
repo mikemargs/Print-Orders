@@ -1,6 +1,7 @@
 """Use fixed precision numeric order totals."""
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
+
 revision='0004_fixed_precision_money'
 down_revision='0003_employee_auth_version'
 branch_labels=None

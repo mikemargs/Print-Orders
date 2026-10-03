@@ -1,6 +1,7 @@
 """Add employee authentication version."""
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
+
 revision='0003_employee_auth_version'
 down_revision='0002_scope_processed_operations'
 branch_labels=None
