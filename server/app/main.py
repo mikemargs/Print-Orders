@@ -2,18 +2,21 @@ from __future__ import annotations
 
 import os
 import uuid
+from datetime import datetime
+from decimal import Decimal
 from collections import Counter, defaultdict
 from contextlib import asynccontextmanager
 from typing import Any, Literal
 
 import jwt
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
-from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from .auth_context import AuthContext, resolve_employee_context
+from .hybrid_auth import hybrid_admin, hybrid_admin_mutation, hybrid_supervisor
 from .database import (
-    Base,
     Company,
     Customer,
     Employee,
@@ -22,45 +25,23 @@ from .database import (
     SessionLocal,
     SyncEvent,
     WorkOrder,
-    engine,
     utcnow,
 )
-from .security import decode_token, hash_secret, make_token, verify_secret
+from .security import (clear_login_failures, decode_token, hash_secret, login_allowed, make_token, record_login_failure, verify_secret)
+from .services.common import Conflict as ServiceConflict, Forbidden as ServiceForbidden, Invalid as ServiceInvalid
+from .routers.web_auth import router as web_auth_router
+from .routers.web import router as web_router
+from .routers.customers import router as customers_router
+from .routers.orders import router as orders_router
+from .routers.files import router as files_router
+from .services.records import (
+    create_or_update_customer,
+    create_or_update_order,
+    delete_customer as service_delete_customer,
+    delete_order as service_delete_order,
+    serialize_record as service_serialize_record,
+)
 
-CUSTOMER_FIELDS = {
-    "company",
-    "first_name",
-    "last_name",
-    "phone",
-    "email",
-    "address1",
-    "address2",
-    "city",
-    "state",
-    "postal_code",
-    "tax_exempt",
-    "notes",
-}
-ORDER_FIELDS = {
-    "customer_id",
-    "location_id",
-    "order_number",
-    "status",
-    "priority",
-    "received_date",
-    "due_date",
-    "assigned_to",
-    "delivery_method",
-    "po_number",
-    "description",
-    "artwork_path",
-    "production_notes",
-    "customer_notes",
-    "tax_rate",
-    "deposit",
-    "discount",
-    "items",
-}
 VALID_ROLES = {"employee", "supervisor", "admin"}
 
 
@@ -103,6 +84,57 @@ class EmployeeUpdate(BaseModel):
     active: bool | None = None
 
 
+class LineItemPayload(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    item_name: str = Field(default="", max_length=200)
+    quantity: Decimal = Field(default=Decimal("0"), ge=0)
+    unit_price: Decimal = Field(default=Decimal("0"), ge=0)
+
+
+class OrderMutationPayload(BaseModel):
+    customer_id: str | None = None
+    location_id: str | None = None
+    order_number: str | None = Field(default=None, max_length=70)
+    status: str | None = None
+    priority: str | None = None
+    received_date: str | None = None
+    due_date: str | None = None
+    assigned_to: str | None = Field(default=None, max_length=120)
+    delivery_method: str | None = Field(default=None, max_length=50)
+    po_number: str | None = Field(default=None, max_length=80)
+    description: str | None = Field(default=None, max_length=300)
+    artwork_path: str | None = None
+    production_notes: str | None = None
+    customer_notes: str | None = None
+    tax_rate: Decimal | None = Field(default=None, ge=0, le=100)
+    deposit: Decimal | None = Field(default=None, ge=0)
+    discount: Decimal | None = Field(default=None, ge=0)
+    items: list[LineItemPayload] | None = None
+
+    @field_validator("status")
+    @classmethod
+    def valid_status(cls, value):
+        allowed = {"Quote","New","Awaiting Artwork","Proof Sent","Proof Approved","In Production","Ready for Pickup","Completed","On Hold","Cancelled"}
+        if value is not None and value not in allowed:
+            raise ValueError("invalid order status")
+        return value
+
+    @field_validator("priority")
+    @classmethod
+    def valid_priority(cls, value):
+        if value is not None and value not in {"Normal","Rush","High"}:
+            raise ValueError("invalid priority")
+        return value
+
+    @field_validator("received_date", "due_date")
+    @classmethod
+    def valid_date(cls, value):
+        if value in (None, ""):
+            return value
+        datetime.strptime(value, "%Y-%m-%d")
+        return value
+
+
 def get_db():
     db = SessionLocal()
     try:
@@ -122,27 +154,8 @@ def token_claims(authorization: str = Header(default="")) -> dict:
         raise HTTPException(401, "Invalid sign-in")
 
 
-def employee_claims(claims: dict = Depends(token_claims), db: Session = Depends(get_db)) -> dict:
-    if claims.get("type") != "employee":
-        raise HTTPException(403, "Employee sign-in required")
-    employee = db.get(Employee, claims.get("employee_id", ""))
-    if not employee or employee.company_id != claims.get("company_id") or not employee.active:
-        raise HTTPException(403, "Employee access has been disabled")
-    current = dict(claims)
-    current["role"] = employee.role
-    return current
-
-
-def admin_claims(claims: dict = Depends(employee_claims)) -> dict:
-    if claims.get("role") != "admin":
-        raise HTTPException(403, "Administrator permission required")
-    return claims
-
-
-def supervisor_claims(claims: dict = Depends(employee_claims)) -> dict:
-    if claims.get("role") not in {"supervisor", "admin"}:
-        raise HTTPException(403, "Supervisor permission required")
-    return claims
+def employee_claims(claims: dict = Depends(token_claims), db: Session = Depends(get_db)) -> AuthContext:
+    return resolve_employee_context(db, claims)
 
 
 def bootstrap_from_environment() -> None:
@@ -198,7 +211,6 @@ def bootstrap_from_environment() -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    Base.metadata.create_all(engine)
     bootstrap_from_environment()
     yield
 
@@ -212,8 +224,38 @@ app = FastAPI(
 )
 
 
+@app.middleware("http")
+async def add_browser_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault(
+        "Permissions-Policy", "camera=(), microphone=(), geolocation=()"
+    )
+    if os.environ.get("APP_ENV", "").strip().lower() == "production":
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
+    return response
+
+
+app.include_router(web_auth_router)
+app.include_router(customers_router)
+app.include_router(orders_router)
+app.include_router(files_router)
+
+
+def database_probe(db: Session) -> None:
+    db.execute(text("SELECT 1"))
+
+
 @app.get("/api/health")
-def health():
+def health(db: Session = Depends(get_db)):
+    try:
+        database_probe(db)
+    except Exception as exc:
+        raise HTTPException(503, "Database unavailable") from exc
     return {"status": "ok", "time": utcnow().isoformat()}
 
 
@@ -223,10 +265,17 @@ def setup_status(db: Session = Depends(get_db)):
 
 
 @app.post("/api/auth/company-login")
-def company_login(body: CompanyLogin, db: Session = Depends(get_db)):
-    company = db.scalar(select(Company).where(Company.code == body.company_code.strip().upper()))
+def company_login(body: CompanyLogin, request: Request, db: Session = Depends(get_db)):
+    code = body.company_code.strip().upper()
+    ip = request.client.host if request.client else "unknown"
+    throttle_key = f"company:{code}:{ip}"
+    if not login_allowed(throttle_key):
+        raise HTTPException(429, "Too many sign-in attempts. Try again later.")
+    company = db.scalar(select(Company).where(Company.code == code))
     if not company or not company.active or not verify_secret(body.password, company.password_hash):
+        record_login_failure(throttle_key)
         raise HTTPException(401, "Company code or password is incorrect")
+    clear_login_failures(throttle_key)
     return {
         "token": make_token(company.id, "company"),
         "company": {"id": company.id, "name": company.name, "code": company.code},
@@ -236,11 +285,16 @@ def company_login(body: CompanyLogin, db: Session = Depends(get_db)):
 @app.post("/api/auth/employee-login")
 def employee_login(
     body: EmployeeLogin,
+    request: Request,
     claims: dict = Depends(token_claims),
     db: Session = Depends(get_db),
 ):
     if claims.get("type") != "company":
         raise HTTPException(403, "Company sign-in required")
+    ip = request.client.host if request.client else "unknown"
+    throttle_key = f"employee:{claims['company_id']}:{body.employee_id}:{ip}"
+    if not login_allowed(throttle_key):
+        raise HTTPException(429, "Too many PIN attempts. Try again later.")
     employee = db.get(Employee, body.employee_id)
     location = db.get(Location, body.location_id)
     if not employee or employee.company_id != claims["company_id"] or not employee.active:
@@ -254,9 +308,11 @@ def employee_login(
     ):
         raise HTTPException(403, "Employee is not assigned to this store")
     if not verify_secret(body.pin, employee.pin_hash):
+        record_login_failure(throttle_key)
         raise HTTPException(401, "PIN is incorrect")
+    clear_login_failures(throttle_key)
     return {
-        "token": make_token(employee.company_id, "employee", employee.id, employee.role),
+        "token": make_token(employee.company_id, "employee", employee.id, employee.role, location_id=body.location_id, auth_version=employee.auth_version),
         "employee": public_employee(employee),
     }
 
@@ -271,7 +327,7 @@ def bootstrap(claims: dict = Depends(token_claims), db: Session = Depends(get_db
         select(Location).where(Location.company_id == company_id, Location.active)
     ).all()
     employees = db.scalars(
-        select(Employee).where(Employee.company_id == company_id, Employee.active)
+        select(Employee).where(Employee.company_id == company_id)
     ).all()
     return {
         "company": {"id": company.id, "name": company.name, "code": company.code},
@@ -289,7 +345,7 @@ def sync_push(
 ):
     results = []
     for operation in body.operations:
-        prior = db.get(ProcessedOperation, operation.operation_id)
+        prior = db.scalar(select(ProcessedOperation).where(ProcessedOperation.company_id == claims["company_id"], ProcessedOperation.operation_id == operation.operation_id))
         if prior:
             results.append(prior.result)
             continue
@@ -306,7 +362,8 @@ def sync_push(
             result = apply_operation(db, claims, operation)
         db.add(
             ProcessedOperation(
-                id=operation.operation_id,
+                row_id=str(uuid.uuid4()),
+                operation_id=operation.operation_id,
                 company_id=claims["company_id"],
                 result=result,
             )
@@ -346,12 +403,28 @@ def sync_pull(
     }
 
 
+@app.get("/api/sync/snapshot")
+def sync_snapshot(
+    claims: dict = Depends(employee_claims),
+    db: Session = Depends(get_db),
+):
+    company_id = claims["company_id"]
+    customers = db.scalars(select(Customer).where(Customer.company_id == company_id, Customer.is_deleted.is_(False))).all()
+    orders = db.scalars(select(WorkOrder).where(WorkOrder.company_id == company_id, WorkOrder.is_deleted.is_(False))).all()
+    cursor = db.scalar(select(func.max(SyncEvent.sequence)).where(SyncEvent.company_id == company_id)) or 0
+    return {
+        "customers": [service_serialize_record(x) for x in customers],
+        "orders": [service_serialize_record(x) for x in orders],
+        "cursor": int(cursor),
+    }
+
+
 @app.get("/api/reports/summary")
 def report_summary(
     location_id: str = "",
     start_date: str = "",
     end_date: str = "",
-    claims: dict = Depends(supervisor_claims),
+    claims: AuthContext = Depends(hybrid_supervisor),
     db: Session = Depends(get_db),
 ):
     query = select(WorkOrder).where(
@@ -370,7 +443,7 @@ def report_summary(
             select(Location).where(Location.company_id == claims["company_id"])
         ).all()
     }
-    grouped: dict[str, dict] = defaultdict(lambda: {"orders": 0, "sales": 0.0, "balance": 0.0})
+    grouped: dict[str, dict] = defaultdict(lambda: {"orders": 0, "sales": Decimal("0"), "balance": Decimal("0")})
     statuses = Counter()
     for order in orders:
         key = order.location_id
@@ -380,8 +453,8 @@ def report_summary(
         statuses[order.status] += 1
     return {
         "total_orders": len(orders),
-        "total_sales": round(sum(x.total for x in orders), 2),
-        "outstanding_balance": round(sum(x.balance for x in orders), 2),
+        "total_sales": float(sum((x.total for x in orders), Decimal("0")).quantize(Decimal("0.01"))),
+        "outstanding_balance": float(sum((x.balance for x in orders), Decimal("0")).quantize(Decimal("0.01"))),
         "by_status": dict(statuses),
         "by_location": [
             {
@@ -389,7 +462,7 @@ def report_summary(
                 "location": f"{locations[key].name} #{locations[key].store_number}"
                 if key in locations
                 else key,
-                **{k: round(v, 2) if isinstance(v, float) else v for k, v in values.items()},
+                **{k: float(v.quantize(Decimal("0.01"))) if isinstance(v, Decimal) else v for k, v in values.items()},
             }
             for key, values in grouped.items()
         ],
@@ -397,7 +470,7 @@ def report_summary(
 
 
 @app.get("/api/admin/employees")
-def list_employees(_claims: dict = Depends(admin_claims), db: Session = Depends(get_db)):
+def list_employees(_claims: AuthContext = Depends(hybrid_admin), db: Session = Depends(get_db)):
     employees = db.scalars(
         select(Employee).where(Employee.company_id == _claims["company_id"])
     ).all()
@@ -407,7 +480,7 @@ def list_employees(_claims: dict = Depends(admin_claims), db: Session = Depends(
 @app.post("/api/admin/employees")
 def create_employee(
     body: EmployeeCreate,
-    claims: dict = Depends(admin_claims),
+    claims: AuthContext = Depends(hybrid_admin_mutation),
     db: Session = Depends(get_db),
 ):
     validate_locations(db, claims["company_id"], body.location_ids)
@@ -425,23 +498,46 @@ def create_employee(
     return {"employee": public_employee(employee)}
 
 
+def active_admin_lock_query(company_id: str):
+    return (
+        select(Employee.id)
+        .where(
+            Employee.company_id == company_id,
+            Employee.active.is_(True),
+            Employee.role == "admin",
+        )
+        .with_for_update()
+    )
+
+
 @app.patch("/api/admin/employees/{employee_id}")
 def update_employee(
     employee_id: str,
     body: EmployeeUpdate,
-    claims: dict = Depends(admin_claims),
+    claims: AuthContext = Depends(hybrid_admin_mutation),
     db: Session = Depends(get_db),
 ):
     employee = db.get(Employee, employee_id)
     if not employee or employee.company_id != claims["company_id"]:
         raise HTTPException(404, "Employee not found")
     changes = body.model_dump(exclude_unset=True)
+    would_remove_admin = employee.active and employee.role == "admin" and (changes.get("active") is False or ("role" in changes and changes.get("role") != "admin"))
+    if would_remove_admin:
+        active_admin_ids = list(db.scalars(active_admin_lock_query(claims["company_id"])).all())
+        if len(active_admin_ids) <= 1:
+            raise HTTPException(400, "The final active administrator cannot be disabled or demoted")
     if "location_ids" in changes:
         validate_locations(db, claims["company_id"], changes["location_ids"])
+    auth_changed = False
     if "pin" in changes:
         employee.pin_hash = hash_secret(changes.pop("pin"))
+        auth_changed = True
     for key, value in changes.items():
+        if key in {"active", "role", "location_ids"} and getattr(employee, key) != value:
+            auth_changed = True
         setattr(employee, key, value.strip() if key == "name" else value)
+    if auth_changed:
+        employee.auth_version = int(employee.auth_version or 1) + 1
     employee.updated_at = utcnow()
     db.commit()
     return {"employee": public_employee(employee)}
@@ -457,106 +553,37 @@ def validate_locations(db: Session, company_id: str, location_ids: list[str]) ->
         raise HTTPException(400, "One or more store assignments are invalid")
 
 
-def apply_operation(db: Session, claims: dict, operation: SyncOperation) -> dict:
-    model = Customer if operation.entity_type == "customer" else WorkOrder
-    record = db.scalar(select(model).where(model.id == operation.entity_id).with_for_update())
-    if record and record.company_id != claims["company_id"]:
-        return sync_result(operation, "forbidden", message="Record belongs to another company")
-    if record and operation.base_version != record.version:
-        return sync_result(operation, "conflict", server=serialize_record(record))
-    if not record and operation.base_version != 0:
-        return sync_result(operation, "conflict", message="Record no longer exists")
-    if operation.action == "delete":
-        if not record:
-            return sync_result(operation, "applied", version=operation.base_version)
-        record.is_deleted = True
-    else:
-        payload = operation.payload
-        allowed = CUSTOMER_FIELDS if operation.entity_type == "customer" else ORDER_FIELDS
-        if not record:
-            if operation.entity_type == "customer":
-                record = Customer(id=operation.entity_id, company_id=claims["company_id"])
+def apply_operation(db: Session, claims: AuthContext, operation: SyncOperation) -> dict:
+    try:
+        if operation.entity_type == "customer":
+            if operation.action == "delete":
+                record = service_delete_customer(
+                    db, claims, operation.entity_id, operation.base_version
+                )
             else:
-                if not payload.get("customer_id") or not payload.get("location_id"):
-                    return sync_result(
-                        operation,
-                        "invalid",
-                        message="Order customer and location are required",
-                    )
-                customer = db.get(Customer, payload["customer_id"])
-                location = db.get(Location, payload["location_id"])
-                if not customer or customer.company_id != claims["company_id"]:
-                    return sync_result(operation, "invalid", message="Customer was not found")
-                if not location or location.company_id != claims["company_id"]:
-                    return sync_result(operation, "invalid", message="Store location was not found")
-                record = WorkOrder(id=operation.entity_id, company_id=claims["company_id"])
-            db.add(record)
-        for key, value in payload.items():
-            if key in allowed:
-                if isinstance(record, Customer) and key == "tax_exempt":
-                    value = value is True or value == 1 or str(value).lower() in {"true", "yes"}
-                setattr(record, key, value)
-        record.is_deleted = False
-        if isinstance(record, WorkOrder):
-            calculate_order(record)
-    record.version = (record.version if record.id and record.version else 0) + (
-        0 if operation.base_version == 0 and record.version == 1 else 1
-    )
-    if operation.base_version == 0:
-        record.version = 1
-    record.updated_at = utcnow()
-    record.updated_by = claims["employee_id"]
-    db.flush()
-    payload = serialize_record(record)
-    db.add(
-        SyncEvent(
-            company_id=claims["company_id"],
-            entity_type=operation.entity_type,
-            entity_id=record.id,
-            change_type="delete" if record.is_deleted else "upsert",
-            payload=payload,
-        )
-    )
-    return sync_result(operation, "applied", version=record.version, server=payload)
+                record = create_or_update_customer(
+                    db, claims, operation.entity_id, operation.base_version, operation.payload
+                )
+        else:
+            if operation.action == "delete":
+                record = service_delete_order(
+                    db, claims, operation.entity_id, operation.base_version
+                )
+            else:
+                record = create_or_update_order(
+                    db, claims, operation.entity_id, operation.base_version, operation.payload
+                )
+        if record is None:
+            return sync_result(operation, "applied", version=operation.base_version)
+        payload = service_serialize_record(record)
+        return sync_result(operation, "applied", version=record.version, server=payload)
+    except ServiceConflict as exc:
+        return sync_result(operation, "conflict", server=exc.current, message=str(exc))
+    except ServiceForbidden as exc:
+        return sync_result(operation, "forbidden", message=str(exc))
+    except ServiceInvalid as exc:
+        return sync_result(operation, "invalid", message=str(exc))
 
-
-def calculate_order(order: WorkOrder) -> None:
-    subtotal = 0.0
-    clean_items = []
-    for item in order.items or []:
-        clean = dict(item)
-        quantity = max(float(clean.get("quantity", 0) or 0), 0)
-        unit_price = max(float(clean.get("unit_price", 0) or 0), 0)
-        clean["quantity"], clean["unit_price"] = quantity, unit_price
-        clean_items.append(clean)
-        subtotal += quantity * unit_price
-    order.items = clean_items
-    order.tax_rate = max(float(order.tax_rate or 0), 0)
-    order.discount = max(float(order.discount or 0), 0)
-    order.deposit = max(float(order.deposit or 0), 0)
-    taxable = max(subtotal - order.discount, 0)
-    order.subtotal = round(subtotal, 2)
-    order.total = round(taxable * (1 + order.tax_rate / 100), 2)
-    order.balance = round(max(order.total - order.deposit, 0), 2)
-
-
-def serialize_record(record: Customer | WorkOrder) -> dict:
-    fields = (
-        CUSTOMER_FIELDS
-        if isinstance(record, Customer)
-        else ORDER_FIELDS | {"subtotal", "total", "balance"}
-    )
-    result = {key: getattr(record, key) for key in fields}
-    result.update(
-        {
-            "id": record.id,
-            "version": record.version,
-            "is_deleted": record.is_deleted,
-            "updated_at": record.updated_at.isoformat() if record.updated_at else "",
-            "updated_by": record.updated_by,
-        }
-    )
-    return result
 
 
 def sync_result(
@@ -584,6 +611,7 @@ def public_employee(employee: Employee) -> dict:
         "role": employee.role,
         "location_ids": employee.location_ids or [],
         "active": employee.active,
+        "auth_version": int(employee.auth_version or 1),
         "updated_at": employee.updated_at.isoformat() if employee.updated_at else "",
     }
 
@@ -596,3 +624,6 @@ def public_location(location: Location) -> dict:
         "timezone": location.timezone,
         "active": location.active,
     }
+
+# Keep this catch-all last so it can never shadow an API route.
+app.include_router(web_router)

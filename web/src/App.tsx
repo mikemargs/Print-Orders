@@ -1,0 +1,14 @@
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { useSession } from './auth/SessionContext'
+import { LoginPage } from './auth/LoginPage'
+import { AppShell } from './layout/AppShell'
+import { DashboardPage } from './features/dashboard/DashboardPage'
+import { CustomersPage } from './features/customers/CustomersPage'
+import { CustomerEditor } from './features/customers/CustomerEditor'
+import { OrdersPage } from './features/orders/OrdersPage'
+import { OrderEditor } from './features/orders/OrderEditor'
+import { ReportsPage } from './features/reports/ReportsPage'
+import { EmployeesPage } from './features/employees/EmployeesPage'
+import { WorkTicket } from './features/orders/WorkTicket'
+
+export default function App(){const {session,loading}=useSession();if(loading)return <main className="loading-screen">Loading Print Order Manager…</main>;if(!session)return <LoginPage/>;return <Routes><Route element={<AppShell/>}><Route index element={<DashboardPage/>}/><Route path="orders" element={<OrdersPage/>}/><Route path="orders/new" element={<OrderEditor/>}/><Route path="orders/:id" element={<OrderEditor/>}/><Route path="orders/:id/print" element={<WorkTicket/>}/><Route path="customers" element={<CustomersPage/>}/><Route path="customers/new" element={<CustomerEditor/>}/><Route path="customers/:id" element={<CustomerEditor/>}/>{(session.employee.role==='supervisor'||session.employee.role==='admin')&&<Route path="reports" element={<ReportsPage/>}/>} {session.employee.role==='admin'&&<Route path="employees" element={<EmployeesPage/>}/>}<Route path="*" element={<Navigate to="/" replace/>}/></Route></Routes>}

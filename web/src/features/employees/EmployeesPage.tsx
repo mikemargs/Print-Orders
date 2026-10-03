@@ -1,0 +1,21 @@
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { ApiError, apiFetch } from '../../api/http'
+import type { Employee, Role } from '../../api/types'
+import { useSession } from '../../auth/SessionContext'
+import { useOnline } from '../../offline/OnlineState'
+
+type Draft={id?:string;name:string;pin:string;role:Role;location_ids:string[];active:boolean}
+const blank=(locationId=''):Draft=>({name:'',pin:'',role:'employee',location_ids:locationId?[locationId]:[],active:true})
+
+export function EmployeesPage(){
+  const {session}=useSession();const {online}=useOnline();const [rows,setRows]=useState<Employee[]>([]);const [draft,setDraft]=useState<Draft>(()=>blank(session?.location.id));const [error,setError]=useState('');const [busy,setBusy]=useState(false)
+  const locations=session?.locations||[]
+  const refresh=()=>apiFetch<{employees:Employee[]}>('/api/admin/employees').then(x=>setRows(x.employees))
+  useEffect(()=>{if(online)void refresh()},[online])
+  const sorted=useMemo(()=>[...rows].sort((a,b)=>a.name.localeCompare(b.name)),[rows])
+  function edit(emp:Employee){setDraft({id:emp.id,name:emp.name,pin:'',role:emp.role,location_ids:emp.location_ids||[],active:emp.active!==false});setError('')}
+  function toggleLocation(id:string){setDraft(x=>({...x,location_ids:x.location_ids.includes(id)?x.location_ids.filter(v=>v!==id):[...x.location_ids,id]}))}
+  async function save(e:FormEvent){e.preventDefault();setError('');setBusy(true);try{const body:any={name:draft.name,role:draft.role,location_ids:draft.location_ids,active:draft.active};if(draft.pin)body.pin=draft.pin;if(draft.id)await apiFetch(`/api/admin/employees/${draft.id}`,{method:'PATCH',body:JSON.stringify(body)});else{if(!draft.pin)throw new Error('A PIN is required for a new employee.');delete body.active;await apiFetch('/api/admin/employees',{method:'POST',body:JSON.stringify(body)})}setDraft(blank(session?.location.id));await refresh()}catch(e){setError(e instanceof ApiError?e.message:e instanceof Error?e.message:'Unable to save employee')}finally{setBusy(false)}}
+  if(!online)return <section><div className="page-heading"><h1>Employees</h1></div><div className="notice">Employee administration requires an online connection.</div></section>
+  return <section><div className="page-heading"><div><h1>Employees</h1><p className="muted">Manage roles, store assignments, PINs, and active access.</p></div></div><form className="panel form-stack" onSubmit={save}><h2>{draft.id?'Edit employee':'Add employee'}</h2>{error&&<p className="error">{error}</p>}<div className="form-grid"><label>Name<input value={draft.name} onChange={e=>setDraft(x=>({...x,name:e.target.value}))} required/></label><label>{draft.id?'New PIN (optional)':'PIN'}<input type="password" minLength={4} value={draft.pin} onChange={e=>setDraft(x=>({...x,pin:e.target.value}))}/></label><label>Role<select value={draft.role} onChange={e=>setDraft(x=>({...x,role:e.target.value as Role}))}><option value="employee">Employee</option><option value="supervisor">Supervisor</option><option value="admin">Administrator</option></select></label>{draft.id&&<label className="checkbox"><input type="checkbox" checked={draft.active} onChange={e=>setDraft(x=>({...x,active:e.target.checked}))}/> Active</label>}</div><fieldset><legend>Assigned stores</legend><div className="checkbox-grid">{locations.map(loc=><label className="checkbox" key={loc.id}><input type="checkbox" checked={draft.location_ids.includes(loc.id)} onChange={()=>toggleLocation(loc.id)}/>{loc.name} #{loc.store_number}</label>)}</div></fieldset><div className="form-actions"><button type="submit" disabled={busy}>{busy?'Saving…':'Save employee'}</button><button type="button" className="secondary" onClick={()=>{setDraft(blank(session?.location.id));setError('')}}>Clear</button></div></form><div className="panel table-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Active</th><th>Stores</th><th></th></tr></thead><tbody>{sorted.map(x=><tr key={x.id}><td>{x.name}</td><td>{x.role}</td><td>{x.active?'Yes':'No'}</td><td>{x.role==='admin'?'Company-wide':locations.filter(l=>x.location_ids.includes(l.id)).map(l=>l.name).join(', ')||'None'}</td><td><button className="small-button secondary" onClick={()=>edit(x)}>Edit</button></td></tr>)}</tbody></table></div></section>
+}

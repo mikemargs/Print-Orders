@@ -1,0 +1,97 @@
+name: Application CI
+
+on:
+  push:
+    branches: [main, audit-web-hardening]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: printorders_ci
+          POSTGRES_USER: printorders
+          POSTGRES_PASSWORD: printorders_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U printorders -d printorders_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://printorders:printorders_ci_password@localhost:5432/printorders_ci
+      JWT_SECRET: ci-jwt-secret-that-is-longer-than-thirty-two-characters
+      APP_ENV: test
+      WEB_COOKIE_SECURE: "false"
+      STORAGE_BACKEND: fake
+      BOOTSTRAP_COMPANY_NAME: CI Print Company
+      BOOTSTRAP_COMPANY_CODE: TEST-PRINT
+      BOOTSTRAP_COMPANY_PASSWORD: company-password
+      BOOTSTRAP_ADMIN_NAME: Test Admin
+      BOOTSTRAP_ADMIN_PIN: "246810"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            server/requirements.txt
+            client/requirements.txt
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r server/requirements.txt -r client/requirements.txt ruff
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Upgrade a real PostgreSQL database
+        working-directory: server
+        run: alembic upgrade head
+      - name: PostgreSQL application smoke test
+        run: python tests/postgres_smoke.py
+      - name: Python tests
+        run: python -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+      - name: Web typecheck
+        working-directory: web
+        run: npm run typecheck
+      - name: Web tests
+        working-directory: web
+        run: npm test -- --run
+      - name: Web lint
+        working-directory: web
+        run: npm run lint
+      - name: Web build
+        working-directory: web
+        run: npm run build
+      - name: Start production-style web/API service
+        run: |
+          WEB_DIST_DIR="$GITHUB_WORKSPACE/web/dist" nohup uvicorn app.main:app --app-dir server --host 127.0.0.1 --port 8000 > /tmp/print-orders-e2e.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8000/api/health; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/print-orders-e2e.log
+          exit 1
+      - name: Install Playwright Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+      - name: Browser end-to-end tests
+        working-directory: web
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:8000
+        run: npm run test:e2e
+      - name: Build production container
+        run: docker build -f server/Dockerfile -t print-order-manager:ci .

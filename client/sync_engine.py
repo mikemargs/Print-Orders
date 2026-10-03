@@ -14,6 +14,9 @@ def sync_once(store: LocalStore, api: ApiClient) -> dict:
     # propagate without requiring every workstation to restart.
     store.cache_bootstrap(api.bootstrap())
     pushed = 0
+    cursor = int(store.get_meta("sync_cursor", "0"))
+    if cursor == 0 and not store.has_local_records() and store.pending_count() == 0 and hasattr(api, "snapshot"):
+        store.apply_snapshot(api.snapshot())
     operations = store.pending_operations(100)
     if operations:
         response = api.push(operations)

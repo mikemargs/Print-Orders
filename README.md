@@ -1,6 +1,6 @@
 # Print Order Manager — Multi-Store Edition
 
-A downloadable Windows desktop application backed by one central database for multiple print-store locations. The included deployment is preconfigured for:
+A multi-store print-order system with a Windows desktop client and an installable React browser/PWA, both backed by one central database. The included deployment is preconfigured for:
 
 - Sayville — Store #5127
 - Selden — Store #5345
@@ -24,16 +24,21 @@ The desktop program keeps a local cache, so staff can continue creating customer
 - Legacy import from the original single-computer edition
 - PostgreSQL production database, HTTPS gateway, health endpoint, and backup script
 - Windows EXE and installer build files
+- Responsive browser/PWA for desktop, tablet, and phone
+- Read-only browser outage mode using a bounded IndexedDB cache
+- Private resumable artwork uploads to Supabase Storage
+- Secure HttpOnly browser sessions with CSRF protection
 
 ## Project layout
 
 | Folder | Purpose |
 | --- | --- |
 | `client` | Windows desktop program, local cache, offline queue, and synchronization engine |
-| `server` | Secure API, authentication, conflict detection, reporting, and database models |
+| `server` | Secure API, browser/desktop authentication, synchronization, reporting, migrations, and database models |
+| `web` | React/TypeScript installable PWA and read-only offline cache |
 | `installer` | Inno Setup definition for a normal Windows installer |
 | `tests` | Local-store and end-to-end API tests |
-| `.github/workflows` | Optional automated Windows installer build |
+| `.github/workflows` | Application CI plus automated Windows installer build |
 
 ## Important deployment requirement
 
@@ -48,7 +53,7 @@ This starts the central server on one computer for testing:
 1. Install Docker Desktop.
 2. Copy `server/.env.example` to `.env` in this top-level folder.
 3. Replace every placeholder password and secret in `.env`.
-4. Leave `SITE_ADDRESS=http://localhost` for the test.
+4. For a local HTTP test set `APP_ENV=development`, `WEB_COOKIE_SECURE=false`, `STORAGE_BACKEND=fake`, and leave `SITE_ADDRESS=http://localhost`.
 5. Run `docker compose up -d --build` from this folder.
 6. Open `http://localhost/api/health`; it should show `"status":"ok"`.
 7. On the same computer, open `client` and double-click `run_client.bat`.
@@ -65,9 +70,20 @@ python -m pip install -r server/requirements.txt requests httpx
 python -m unittest discover -s tests -v
 ```
 
+Frontend checks run from `web/` after installing Node 22 dependencies:
+
+```text
+npm install
+npm test
+npm run typecheck
+npm run lint
+npm run build
+npm run test:e2e
+```
+
 ## Data locations
 
-- Central production records: PostgreSQL volume on the server
+- Central production records: Supabase PostgreSQL in the recommended cloud deployment (or the Docker PostgreSQL volume when self-hosting)
 - Windows offline cache: `%LOCALAPPDATA%\PrintOrderManagerMultiStore\multistore_cache.db`
 - Windows connection settings: `%LOCALAPPDATA%\PrintOrderManagerMultiStore\client_config.json`
 

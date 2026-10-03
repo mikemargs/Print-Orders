@@ -94,6 +94,9 @@ class ApiClient:
             params={"cursor": cursor, "limit": limit},
         )
 
+    def snapshot(self) -> dict:
+        return self._request("GET", "/api/sync/snapshot", token=self.employee_token)
+
     def report(self, location_id: str = "", start_date: str = "", end_date: str = "") -> dict:
         return self._request(
             "GET",

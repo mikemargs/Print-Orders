@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: print-order-manager
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: WEB_COOKIE_SECURE
+        value: "true"
+      - key: STORAGE_BACKEND
+        value: supabase
+      - key: SUPABASE_STORAGE_BUCKET
+        value: print-artwork
+      - key: MAX_UPLOAD_BYTES
+        value: "262144000"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: BOOTSTRAP_COMPANY_NAME
+        sync: false
+      - key: BOOTSTRAP_COMPANY_CODE
+        sync: false
+      - key: BOOTSTRAP_COMPANY_PASSWORD
+        sync: false
+      - key: BOOTSTRAP_ADMIN_NAME
+        sync: false
+      - key: BOOTSTRAP_ADMIN_PIN
+        sync: false

@@ -8,7 +8,7 @@ import secrets
 import sqlite3
 import uuid
 from collections.abc import Iterable
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -74,10 +74,10 @@ class LocalStore:
                 CREATE TABLE IF NOT EXISTS employees (
                     id TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL,
                     location_ids TEXT NOT NULL DEFAULT '[]', active INTEGER NOT NULL DEFAULT 1,
-                    updated_at TEXT NOT NULL DEFAULT ''
+                    auth_version INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL DEFAULT ''
                 );
                 CREATE TABLE IF NOT EXISTS employee_pin_cache (
-                    employee_id TEXT PRIMARY KEY, verifier TEXT NOT NULL,
+                    employee_id TEXT PRIMARY KEY, verifier TEXT NOT NULL, auth_version INTEGER NOT NULL DEFAULT 0,
                     FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE
                 );
                 CREATE TABLE IF NOT EXISTS customers (
@@ -116,13 +116,22 @@ class LocalStore:
                 CREATE TABLE IF NOT EXISTS conflicts (
                     id INTEGER PRIMARY KEY AUTOINCREMENT, entity_type TEXT NOT NULL,
                     entity_id TEXT NOT NULL, local_payload TEXT NOT NULL, server_payload TEXT NOT NULL,
-                    message TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,
+                    category TEXT NOT NULL DEFAULT 'conflict', message TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,
                     UNIQUE(entity_type, entity_id)
                 );
                 CREATE INDEX IF NOT EXISTS idx_orders_location ON orders(location_id);
                 CREATE INDEX IF NOT EXISTS idx_orders_due ON orders(due_date);
                 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
             """)
+            employee_cols = {row[1] for row in conn.execute("PRAGMA table_info(employees)")}
+            if "auth_version" not in employee_cols:
+                conn.execute("ALTER TABLE employees ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 1")
+            pin_cols = {row[1] for row in conn.execute("PRAGMA table_info(employee_pin_cache)")}
+            if "auth_version" not in pin_cols:
+                conn.execute("ALTER TABLE employee_pin_cache ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 0")
+            conflict_cols = {row[1] for row in conn.execute("PRAGMA table_info(conflicts)")}
+            if "category" not in conflict_cols:
+                conn.execute("ALTER TABLE conflicts ADD COLUMN category TEXT NOT NULL DEFAULT 'conflict'")
             conn.execute("INSERT OR IGNORE INTO meta(key,value) VALUES('sync_cursor','0')")
 
     @staticmethod
@@ -164,9 +173,9 @@ class LocalStore:
     def _upsert_employee(self, conn: sqlite3.Connection, emp: dict) -> None:
         conn.execute(
             """
-            INSERT INTO employees(id,name,role,location_ids,active,updated_at) VALUES(?,?,?,?,?,?)
+            INSERT INTO employees(id,name,role,location_ids,active,auth_version,updated_at) VALUES(?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET name=excluded.name,role=excluded.role,
-            location_ids=excluded.location_ids,active=excluded.active,updated_at=excluded.updated_at
+            location_ids=excluded.location_ids,active=excluded.active,auth_version=excluded.auth_version,updated_at=excluded.updated_at
         """,
             (
                 emp["id"],
@@ -174,6 +183,7 @@ class LocalStore:
                 emp["role"],
                 json.dumps(emp.get("location_ids", [])),
                 int(emp.get("active", True)),
+                int(emp.get("auth_version", 1)),
                 emp.get("updated_at", ""),
             ),
         )
@@ -204,30 +214,31 @@ class LocalStore:
             result.append(item)
         return result
 
-    def cache_employee_pin(self, employee_id: str, pin: str) -> None:
+    def cache_employee_pin(self, employee_id: str, pin: str, auth_version: int | None = None) -> None:
         salt = secrets.token_bytes(16)
         digest = hashlib.pbkdf2_hmac("sha256", pin.encode(), salt, PIN_ITERATIONS)
         verifier = f"{PIN_ITERATIONS}${salt.hex()}${digest.hex()}"
         with self.connect() as conn:
+            if auth_version is None:
+                row = conn.execute("SELECT auth_version FROM employees WHERE id=?", (employee_id,)).fetchone()
+                auth_version = int(row[0]) if row else 0
             conn.execute(
-                "INSERT INTO employee_pin_cache(employee_id,verifier) VALUES(?,?) "
-                "ON CONFLICT(employee_id) DO UPDATE SET verifier=excluded.verifier",
-                (employee_id, verifier),
+                "INSERT INTO employee_pin_cache(employee_id,verifier,auth_version) VALUES(?,?,?) "
+                "ON CONFLICT(employee_id) DO UPDATE SET verifier=excluded.verifier,auth_version=excluded.auth_version",
+                (employee_id, verifier, int(auth_version)),
             )
 
     def verify_cached_pin(self, employee_id: str, pin: str) -> bool:
         with self.connect() as conn:
             row = conn.execute(
-                "SELECT verifier FROM employee_pin_cache WHERE employee_id=?",
+                "SELECT p.verifier,p.auth_version,e.auth_version,e.active FROM employee_pin_cache p JOIN employees e ON e.id=p.employee_id WHERE p.employee_id=?",
                 (employee_id,),
             ).fetchone()
-        if not row:
+        if not row or not row[3] or int(row[1]) != int(row[2]):
             return False
         try:
             iterations, salt, expected = row[0].split("$", 2)
-            actual = hashlib.pbkdf2_hmac(
-                "sha256", pin.encode(), bytes.fromhex(salt), int(iterations)
-            )
+            actual = hashlib.pbkdf2_hmac("sha256", pin.encode(), bytes.fromhex(salt), int(iterations))
             return hmac.compare_digest(actual, bytes.fromhex(expected))
         except (ValueError, TypeError):
             return False
@@ -555,16 +566,17 @@ class LocalStore:
                 else:
                     conn.execute(
                         """
-                        INSERT INTO conflicts(entity_type,entity_id,local_payload,server_payload,message,created_at)
-                        VALUES(?,?,?,?,?,?) ON CONFLICT(entity_type,entity_id) DO UPDATE SET
+                        INSERT INTO conflicts(entity_type,entity_id,local_payload,server_payload,category,message,created_at)
+                        VALUES(?,?,?,?,?,?,?) ON CONFLICT(entity_type,entity_id) DO UPDATE SET
                         local_payload=excluded.local_payload,server_payload=excluded.server_payload,
-                        message=excluded.message,created_at=excluded.created_at
+                        category=excluded.category,message=excluded.message,created_at=excluded.created_at
                     """,
                         (
                             op["entity_type"],
                             op["entity_id"],
                             op["payload"],
                             json.dumps(result.get("server") or {}),
+                            result.get("status", "conflict"),
                             result.get("message") or result["status"],
                             self.now(),
                         ),
@@ -588,14 +600,16 @@ class LocalStore:
                     ).fetchone()
                     conn.execute(
                         """
-                        INSERT INTO conflicts(entity_type,entity_id,local_payload,server_payload,message,created_at)
-                        VALUES(?,?,?,?,?,?) ON CONFLICT(entity_type,entity_id) DO NOTHING
+                        INSERT INTO conflicts(entity_type,entity_id,local_payload,server_payload,category,message,created_at)
+                        VALUES(?,?,?,?,?,?,?) ON CONFLICT(entity_type,entity_id) DO UPDATE SET
+                        server_payload=excluded.server_payload,category='conflict',message=excluded.message,created_at=excluded.created_at
                     """,
                         (
                             event["entity_type"],
                             event["entity_id"],
                             local[0],
                             json.dumps(event["payload"]),
+                            "conflict",
                             "Another store changed this record while local edits were waiting",
                             self.now(),
                         ),
@@ -688,6 +702,27 @@ class LocalStore:
                 values,
             )
 
+    def has_local_records(self) -> bool:
+        with self.connect() as conn:
+            count = conn.execute("SELECT (SELECT COUNT(*) FROM customers) + (SELECT COUNT(*) FROM orders)").fetchone()[0]
+            return bool(count)
+
+    def apply_snapshot(self, snapshot: dict) -> None:
+        with self.connect() as conn:
+            if conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0]:
+                raise ValueError("Cannot apply a server snapshot while local changes are pending")
+            conn.execute("DELETE FROM orders")
+            conn.execute("DELETE FROM customers")
+            conn.execute("DELETE FROM conflicts")
+            for customer in snapshot.get("customers", []):
+                self._apply_server(conn, "customer", customer, allow_pending=True)
+            for order in snapshot.get("orders", []):
+                self._apply_server(conn, "order", order, allow_pending=True)
+            conn.execute(
+                "INSERT INTO meta(key,value) VALUES('sync_cursor',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (str(int(snapshot.get("cursor", 0))),),
+            )
+
     def conflicts(self) -> list[dict]:
         with self.connect() as conn:
             return [
@@ -705,6 +740,8 @@ class LocalStore:
                 if server:
                     self._apply_server(conn, conflict["entity_type"], server, True)
             elif choice == "local":
+                if conflict["category"] != "conflict":
+                    raise ValueError("Rejected changes cannot be force-resubmitted. Correct the record and save it again.")
                 if not server:
                     raise ValueError(
                         "The server copy is unavailable; accept the server copy or recreate the record."
@@ -754,7 +791,7 @@ class LocalStore:
 
     def backup(self, destination: str | Path) -> None:
         with (
-            sqlite3.connect(self.path) as source,
-            sqlite3.connect(destination) as target,
+            closing(sqlite3.connect(self.path)) as source,
+            closing(sqlite3.connect(destination)) as target,
         ):
             source.backup(target)
