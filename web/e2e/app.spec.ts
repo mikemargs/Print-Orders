@@ -31,6 +31,7 @@ test('online workflow remains readable after an offline reload', async ({ page, 
   const customerPayload = await customerResponse.json() as { customers: Array<{ id: string }> }
   expect(customerPayload.customers.map(customer => customer.id)).toContain(customerId)
   const customerSelect = page.getByLabel('Customer', { exact: true })
+  expect(await customerSelect.evaluate(element => element.tagName)).toBe('SELECT')
   const optionValues = await customerSelect.locator('option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value))
   expect(optionValues).toContain(customerId)
   await customerSelect.selectOption(customerId)
