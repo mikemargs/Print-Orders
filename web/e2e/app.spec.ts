@@ -12,6 +12,8 @@ async function signIn(page: Page) {
 }
 
 test('online workflow remains readable after an offline reload', async ({ page, context }) => {
+  const pageErrors: string[] = []
+  page.on('pageerror', error => pageErrors.push(error.message))
   await signIn(page)
 
   await page.getByRole('link', { name: 'Customers' }).click()
@@ -30,6 +32,10 @@ test('online workflow remains readable after an offline reload', async ({ page, 
   expect(customerResponse.ok()).toBeTruthy()
   const customerPayload = await customerResponse.json() as { customers: Array<{ id: string }> }
   expect(customerPayload.customers.map(customer => customer.id)).toContain(customerId)
+  console.log('ORDER_PAGE_URL', page.url())
+  console.log('ORDER_PAGE_TEXT', (await page.locator('body').innerText()).slice(0, 1200))
+  console.log('ORDER_PAGE_ERRORS', pageErrors)
+  expect(pageErrors).toEqual([])
   const customerSelect = page.getByLabel('Customer', { exact: true })
   expect(await customerSelect.evaluate(element => element.tagName)).toBe('SELECT')
   const optionValues = await customerSelect.locator('option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value))
