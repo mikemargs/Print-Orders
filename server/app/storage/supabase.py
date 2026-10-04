@@ -19,13 +19,13 @@ class SupabaseStorageAdapter:
 
     @property
     def _headers(self) -> dict[str, str]:
-        headers = {"apikey": self.service_key}
-        # Modern sb_secret_* keys are opaque API keys, not JWTs. Sending them as
-        # Authorization: Bearer makes Supabase try to parse them as JWTs.
-        # Keep Bearer auth only for legacy JWT-based service_role keys.
-        if not self.service_key.startswith("sb_secret_"):
-            headers["Authorization"] = f"Bearer {self.service_key}"
-        return headers
+        # Supabase Storage currently requires Authorization for signed-upload
+        # operations. This mirrors supabase-js for Storage: send the project
+        # key on both apikey and Bearer headers.
+        return {
+            "apikey": self.service_key,
+            "Authorization": f"Bearer {self.service_key}",
+        }
 
     @staticmethod
     def _check_response(response: httpx.Response, operation: str) -> None:
