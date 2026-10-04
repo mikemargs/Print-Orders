@@ -19,7 +19,13 @@ class SupabaseStorageAdapter:
 
     @property
     def _headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self.service_key}", "apikey": self.service_key}
+        headers = {"apikey": self.service_key}
+        # Modern sb_secret_* keys are opaque API keys, not JWTs. Sending them as
+        # Authorization: Bearer makes Supabase try to parse them as JWTs.
+        # Keep Bearer auth only for legacy JWT-based service_role keys.
+        if not self.service_key.startswith("sb_secret_"):
+            headers["Authorization"] = f"Bearer {self.service_key}"
+        return headers
 
     def _storage_host(self) -> str:
         if self.url.endswith(".supabase.co"):
