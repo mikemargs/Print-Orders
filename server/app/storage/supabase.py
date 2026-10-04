@@ -27,6 +27,30 @@ class SupabaseStorageAdapter:
             headers["Authorization"] = f"Bearer {self.service_key}"
         return headers
 
+    @staticmethod
+    def _check_response(response: httpx.Response, operation: str) -> None:
+        if response.is_success:
+            return
+        detail = ""
+        try:
+            payload = response.json()
+            if isinstance(payload, dict):
+                detail = str(
+                    payload.get("message")
+                    or payload.get("error")
+                    or payload.get("error_description")
+                    or payload
+                )
+            else:
+                detail = str(payload)
+        except (ValueError, TypeError):
+            detail = response.text.strip()
+        detail = " ".join(detail.split())[:800] or "No response body"
+        raise RuntimeError(
+            f"Supabase Storage {operation} failed with HTTP "
+            f"{response.status_code}: {detail}"
+        )
+
     def _storage_host(self) -> str:
         if self.url.endswith(".supabase.co"):
             return self.url.replace(".supabase.co", ".storage.supabase.co")
@@ -36,11 +60,11 @@ class SupabaseStorageAdapter:
         path = quote(object_key, safe="/")
         response = httpx.post(
             f"{self.url}/storage/v1/object/upload/sign/{quote(self.bucket, safe='')}/{path}",
-            headers={**self._headers, "Content-Type": "application/json"},
+            headers={**self._headers, "Content-Type": "application/json", "Accept": "application/json"},
             json={},
             timeout=15,
         )
-        response.raise_for_status()
+        self._check_response(response, "signed upload authorization")
         token = response.json().get("token")
         if not token:
             raise RuntimeError("Supabase did not return a signed upload token")
@@ -59,7 +83,7 @@ class SupabaseStorageAdapter:
             headers={**self._headers, "Range": "bytes=0-0"},
             timeout=15,
         )
-        response.raise_for_status()
+        self._check_response(response, "object verification")
         content_range = response.headers.get("content-range", "")
         size = expected_size
         if "/" in content_range:
@@ -77,11 +101,11 @@ class SupabaseStorageAdapter:
         path = quote(object_key, safe="/")
         response = httpx.post(
             f"{self.url}/storage/v1/object/sign/{quote(self.bucket, safe='')}/{path}",
-            headers={**self._headers, "Content-Type": "application/json"},
+            headers={**self._headers, "Content-Type": "application/json", "Accept": "application/json"},
             json={"expiresIn": int(expires_seconds)},
             timeout=15,
         )
-        response.raise_for_status()
+        self._check_response(response, "signed download")
         signed = response.json().get("signedURL") or response.json().get("signedUrl")
         if not signed:
             raise RuntimeError("Supabase did not return a signed download URL")
@@ -90,8 +114,8 @@ class SupabaseStorageAdapter:
     def delete_object(self, object_key: str) -> None:
         response = httpx.delete(
             f"{self.url}/storage/v1/object/{quote(self.bucket, safe='')}",
-            headers={**self._headers, "Content-Type": "application/json"},
+            headers={**self._headers, "Content-Type": "application/json", "Accept": "application/json"},
             json={"prefixes": [object_key]},
             timeout=15,
         )
-        response.raise_for_status()
+        self._check_response(response, "object deletion")

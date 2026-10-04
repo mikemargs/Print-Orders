@@ -2,6 +2,8 @@ import sys
 import unittest
 from pathlib import Path
 
+import httpx
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'server'))
 
@@ -42,6 +44,16 @@ class StorageAdapterTests(unittest.TestCase):
                 'Authorization': 'Bearer legacy-jwt-service-role-key',
             },
         )
+
+    def test_supabase_error_body_is_included_in_runtime_error(self):
+        request = httpx.Request('POST', 'https://project.supabase.co/storage/v1/object/upload/sign/bucket/file.png')
+        response = httpx.Response(
+            400,
+            request=request,
+            json={'statusCode': '400', 'error': 'Bad Request', 'message': 'sample storage failure'},
+        )
+        with self.assertRaisesRegex(RuntimeError, 'HTTP 400: sample storage failure'):
+            SupabaseStorageAdapter._check_response(response, 'signed upload authorization')
 
 
 if __name__ == '__main__': unittest.main()
