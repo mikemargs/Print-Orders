@@ -80,3 +80,14 @@ class OrderUpdate(BaseModel):
     deposit: Decimal | None = None
     discount: Decimal | None = None
     items: list[dict] | None = None
+
+    # Backward compatibility for older cached PWA bundles that echoed the full
+    # server representation during PATCH. These known server-managed fields are
+    # accepted only so validation can proceed, then excluded from model_dump().
+    id: str | None = Field(default=None, exclude=True)
+    subtotal: Decimal | None = Field(default=None, exclude=True)
+    total: Decimal | None = Field(default=None, exclude=True)
+    balance: Decimal | None = Field(default=None, exclude=True)
+    is_deleted: bool | None = Field(default=None, exclude=True)
+    updated_at: str | None = Field(default=None, exclude=True)
+    updated_by: str | None = Field(default=None, exclude=True)
