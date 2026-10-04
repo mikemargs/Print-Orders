@@ -23,13 +23,19 @@ class StorageAdapterTests(unittest.TestCase):
         storage.delete_object('company/order/file/test.pdf')
         with self.assertRaises(FileNotFoundError): storage.verify_uploaded_object('company/order/file/test.pdf', 10)
 
-    def test_modern_supabase_secret_key_uses_apikey_header_only(self):
+    def test_modern_supabase_secret_key_includes_storage_authorization_header(self):
         storage = SupabaseStorageAdapter(
             url='https://project.supabase.co',
             service_key='sb_secret_test-key',
             publishable_key='sb_publishable_test-key',
         )
-        self.assertEqual(storage._headers, {'apikey': 'sb_secret_test-key'})
+        self.assertEqual(
+            storage._headers,
+            {
+                'apikey': 'sb_secret_test-key',
+                'Authorization': 'Bearer sb_secret_test-key',
+            },
+        )
 
     def test_legacy_service_role_key_keeps_bearer_header(self):
         storage = SupabaseStorageAdapter(
