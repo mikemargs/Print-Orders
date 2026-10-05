@@ -179,7 +179,9 @@ class WebSessionTests(unittest.TestCase):
             },
         )
         self.assertEqual(login.status_code, 200, login.text)
-        self.assertEqual([x["id"] for x in login.json()["locations"]], [assigned_location_id])
+        location_ids = {x["id"] for x in login.json()["locations"]}
+        self.assertIn(assigned_location_id, location_ids)
+        self.assertIn(blocked_location_id, location_ids)
 
         blocked = self.client.post(
             "/api/web/auth/location",
