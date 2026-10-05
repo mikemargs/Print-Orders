@@ -18,12 +18,15 @@ CUSTOMER_FIELDS = {
 ORDER_FIELDS = {
     "customer_id", "location_id", "order_number", "status", "priority", "received_date",
     "due_date", "assigned_to", "delivery_method", "po_number", "description", "artwork_path",
-    "production_notes", "customer_notes", "tax_rate", "deposit", "discount", "items",
+    "production_notes", "customer_notes", "tax_rate", "deposit", "discount",
+    "discount_mode", "discount_percent", "items",
 }
 ORDER_STATUSES = {"Quote","New","Awaiting Artwork","Proof Sent","Proof Approved","In Production","Ready for Pickup","Completed","On Hold","Cancelled"}
 PRIORITIES = {"Normal","Rush","High"}
+DISCOUNT_MODES = {"amount", "percent"}
 MAX_MONEY = Decimal("9999999999.99")
 MAX_TAX_RATE = Decimal("999.9999")
+MAX_DISCOUNT_PERCENT = Decimal("100")
 CUSTOMER_TEXT_LIMITS = {
     "company": 180, "first_name": 100, "last_name": 100, "phone": 60, "email": 180,
     "address1": 180, "address2": 180, "city": 100, "state": 60, "postal_code": 30,
@@ -127,9 +130,10 @@ def validate_order_payload(payload: dict) -> None:
     _normalize_bounded_text(payload, ORDER_TEXT_LIMITS)
     if "status" in payload and payload["status"] not in ORDER_STATUSES: raise Invalid("Invalid order status")
     if "priority" in payload and payload["priority"] not in PRIORITIES: raise Invalid("Invalid priority")
+    if "discount_mode" in payload and payload["discount_mode"] not in DISCOUNT_MODES: raise Invalid("Invalid discount mode")
     if "received_date" in payload: _validate_date(payload.get("received_date") or "", "Received date")
     if "due_date" in payload: _validate_date(payload.get("due_date") or "", "Due date")
-    for key in ("tax_rate", "deposit", "discount"):
+    for key in ("tax_rate", "deposit", "discount", "discount_percent"):
         if key not in payload:
             continue
         try:
@@ -140,7 +144,10 @@ def validate_order_payload(payload: dict) -> None:
             raise Invalid(f"{key} must be a finite number")
         if value < 0:
             raise Invalid(f"{key} cannot be negative")
-        maximum = MAX_TAX_RATE if key == "tax_rate" else MAX_MONEY
+        if key == "discount_percent":
+            maximum = MAX_DISCOUNT_PERCENT
+        else:
+            maximum = MAX_TAX_RATE if key == "tax_rate" else MAX_MONEY
         if value > maximum:
             raise Invalid(f"{key} exceeds the supported maximum")
     items = payload.get("items")
@@ -183,9 +190,17 @@ def calculate_order(order: WorkOrder) -> None:
         clean["quantity"] = float(quantity); clean["unit_price"] = float(unit_price); clean_items.append(clean); subtotal += quantity * unit_price
     order.items = clean_items
     order.tax_rate = max(Decimal(str(order.tax_rate or 0)), Decimal(0))
-    order.discount = max(Decimal(str(order.discount or 0)), Decimal(0))
     order.deposit = max(Decimal(str(order.deposit or 0)), Decimal(0))
-    if not all(value.is_finite() for value in (subtotal, order.tax_rate, order.discount, order.deposit)):
+    order.discount_mode = order.discount_mode if order.discount_mode in DISCOUNT_MODES else "amount"
+    order.discount_percent = max(Decimal(str(order.discount_percent or 0)), Decimal(0))
+    if order.discount_percent > MAX_DISCOUNT_PERCENT:
+        raise Invalid("discount_percent exceeds the supported maximum")
+    if order.discount_mode == "percent":
+        order.discount = (subtotal * order.discount_percent / Decimal(100)).quantize(cents, rounding=ROUND_HALF_UP)
+    else:
+        order.discount = max(Decimal(str(order.discount or 0)), Decimal(0))
+        order.discount_percent = Decimal(0)
+    if not all(value.is_finite() for value in (subtotal, order.tax_rate, order.discount, order.discount_percent, order.deposit)):
         raise Invalid("Order monetary values must be finite numbers")
     if subtotal > MAX_MONEY:
         raise Invalid("Order total exceeds the supported maximum")
