@@ -69,11 +69,11 @@ export function DashboardPage() {
     </div>
 
     <div className="store-summary-grid" aria-label="Pending orders by store">
-      {storeCounts.map(store => <Link key={store.id} className="store-summary-card" to="/orders">
+      {storeCounts.map(store => <div key={store.id} className="store-summary-card">
         <span>{store.name} #{store.store_number}</span>
         <strong>{store.count}</strong>
         <small>pending order{store.count === 1 ? '' : 's'}</small>
-      </Link>)}
+      </div>)}
     </div>
 
     <div className="panel">
