@@ -910,7 +910,7 @@ class PrintOrderApp(tk.Tk):
         <header><div><h1>PRINT WORK ORDER</h1><b>{esc(order["location_name"])} #{esc(order["store_number"])}</b></div><div><b>{esc(order["order_number"])}</b><br>{esc(order["status"])}<br>Priority: {esc(order["priority"])}</div></header>
         <div class='grid'><div><b>Customer</b><br>{esc(customer)}<br>{esc(order["phone"])}<br>{esc(order["email"])}</div><div><b>Received:</b> {esc(order["received_date"])}<br><b>Due:</b> {esc(order["due_date"] or "Not set")}<br><b>Assigned:</b> {esc(order["assigned_to"])}<br><b>Delivery:</b> {esc(order["delivery_method"])}</div></div>
         <h2>{esc(order["description"] or "Order Items")}</h2><table><tr><th>Item</th><th>Qty</th><th>Specifications</th><th>Unit</th><th>Amount</th></tr>{items}</table>
-        <table class='totals'><tr><td>Subtotal</td><td class='n'>{money(order["subtotal"])}</td></tr><tr><td>Discount</td><td class='n'>-{money(order["discount"])}</td></tr><tr><td>Tax</td><td class='n'>{money(order["total"] - (max(order["subtotal"] - order["discount"], 0)))}</td></tr><tr><td><b>Total</b></td><td class='n'><b>{money(order["total"])}</b></td></tr><tr><td>Deposit</td><td class='n'>-{money(order["deposit"])}</td></tr><tr><td><b>Balance</b></td><td class='n'><b>{money(order["balance"])}</b></td></tr></table>
+        <table class='totals'><tr><td>Subtotal</td><td class='n'>{money(order["subtotal"])}</td></tr><tr><td>Discount{" (" + f"{float(order.get('discount_percent', 0)):g}%" + ")" if order.get("discount_mode") == "percent" else ""}</td><td class='n'>-{money(order["discount"])}</td></tr><tr><td>Tax</td><td class='n'>{money(order["total"] - (max(order["subtotal"] - order["discount"], 0)))}</td></tr><tr><td><b>Total</b></td><td class='n'><b>{money(order["total"])}</b></td></tr><tr><td>Deposit</td><td class='n'>-{money(order["deposit"])}</td></tr><tr><td><b>Balance</b></td><td class='n'><b>{money(order["balance"])}</b></td></tr></table>
         <h3>Production Notes</h3><div class='notes'>{esc(order["production_notes"])}</div><h3>Customer Notes</h3><div class='notes'>{esc(order["customer_notes"])}</div><p class='tip'>Press Ctrl+P to print or save as PDF.</p>"""
         path = app_data_dir() / f"{order['order_number']}.html"
         path.write_text(page, encoding="utf-8")
@@ -1358,6 +1358,8 @@ class OrderDialog(tk.Toplevel):
             "tax_rate",
             "deposit",
             "discount",
+            "discount_mode",
+            "discount_percent",
         )
         self.vars = {x: tk.StringVar() for x in keys}
         self.vars["status"].set("New")
@@ -1367,6 +1369,8 @@ class OrderDialog(tk.Toplevel):
         self.vars["tax_rate"].set("0")
         self.vars["deposit"].set("0")
         self.vars["discount"].set("0")
+        self.vars["discount_mode"].set("amount")
+        self.vars["discount_percent"].set("0")
         tabs = ttk.Notebook(self)
         tabs.pack(fill="both", expand=True, padx=15, pady=(15, 6))
         details = ttk.Frame(tabs, padding=18)
@@ -1430,20 +1434,25 @@ class OrderDialog(tk.Toplevel):
         details.rowconfigure(12, weight=1)
         totals = ttk.Frame(details)
         totals.grid(row=13, column=1, columnspan=3, sticky="e", pady=10)
-        for idx, (label, key, width) in enumerate(
-            (
-                ("Discount", "discount", 10),
-                ("Tax %", "tax_rate", 8),
-                ("Deposit", "deposit", 10),
-            )
-        ):
-            ttk.Label(totals, text=label).grid(row=0, column=idx * 2, padx=(7, 3))
-            ttk.Entry(totals, textvariable=self.vars[key], width=width).grid(
-                row=0, column=idx * 2 + 1
-            )
+        ttk.Label(totals, text="Discount Type").grid(row=0, column=0, padx=(7, 3))
+        ttk.Combobox(
+            totals,
+            textvariable=self.vars["discount_mode"],
+            values=("amount", "percent"),
+            state="readonly",
+            width=9,
+        ).grid(row=0, column=1)
+        ttk.Label(totals, text="Discount $").grid(row=0, column=2, padx=(7, 3))
+        ttk.Entry(totals, textvariable=self.vars["discount"], width=10).grid(row=0, column=3)
+        ttk.Label(totals, text="Discount %").grid(row=0, column=4, padx=(7, 3))
+        ttk.Entry(totals, textvariable=self.vars["discount_percent"], width=8).grid(row=0, column=5)
+        ttk.Label(totals, text="Tax %").grid(row=0, column=6, padx=(7, 3))
+        ttk.Entry(totals, textvariable=self.vars["tax_rate"], width=8).grid(row=0, column=7)
+        ttk.Label(totals, text="Deposit").grid(row=0, column=8, padx=(7, 3))
+        ttk.Entry(totals, textvariable=self.vars["deposit"], width=10).grid(row=0, column=9)
         self.total_label = ttk.Label(totals, text="Total: $0.00", font=("Segoe UI Semibold", 12))
-        self.total_label.grid(row=1, column=0, columnspan=6, sticky="e", pady=(8, 0))
-        for k in ("discount", "tax_rate", "deposit"):
+        self.total_label.grid(row=1, column=0, columnspan=10, sticky="e", pady=(8, 0))
+        for k in ("discount", "discount_mode", "discount_percent", "tax_rate", "deposit"):
             self.vars[k].trace_add("write", lambda *_: self.update_totals())
         notes.columnconfigure(0, weight=1)
         notes.rowconfigure(3, weight=1)
@@ -1533,10 +1542,19 @@ class OrderDialog(tk.Toplevel):
 
     def update_totals(self):
         try:
-            vals = {k: float(self.vars[k].get() or 0) for k in ("discount", "tax_rate", "deposit")}
+            vals = {
+                k: float(self.vars[k].get() or 0)
+                for k in ("discount", "discount_percent", "tax_rate", "deposit")
+            }
+            vals["discount_mode"] = self.vars["discount_mode"].get() or "amount"
             tot = self.store.calculate_order(vals, self.items)
+            discount_note = (
+                f" ({tot['discount_percent']:g}%)"
+                if tot["discount_mode"] == "percent"
+                else ""
+            )
             self.total_label.configure(
-                text=f"Subtotal: {money(tot['subtotal'])}   Total: {money(tot['total'])}   Balance: {money(tot['balance'])}"
+                text=f"Subtotal: {money(tot['subtotal'])}   Discount{discount_note}: -{money(tot['discount'])}   Total: {money(tot['total'])}   Balance: {money(tot['balance'])}"
             )
         except ValueError:
             self.total_label.configure(text="Check totals fields")
@@ -1560,10 +1578,14 @@ class OrderDialog(tk.Toplevel):
             values["tax_rate"] = to_number(values["tax_rate"], "Tax rate")
             values["deposit"] = to_number(values["deposit"], "Deposit")
             values["discount"] = to_number(values["discount"], "Discount")
+            values["discount_percent"] = to_number(values["discount_percent"], "Discount percent")
+            values["discount_mode"] = values.get("discount_mode") or "amount"
             values["production_notes"] = self.production.get("1.0", "end-1c").strip()
             values["customer_notes"] = self.customer_notes.get("1.0", "end-1c").strip()
-            if min(values["tax_rate"], values["deposit"], values["discount"]) < 0:
+            if min(values["tax_rate"], values["deposit"], values["discount"], values["discount_percent"]) < 0:
                 raise ValueError("Tax, deposit, and discount cannot be negative.")
+            if values["discount_percent"] > 100:
+                raise ValueError("Percent discount cannot exceed 100%.")
             result = self.store.save_order(values, self.items, self.order_id)
             if self.on_saved:
                 self.on_saved(result)
