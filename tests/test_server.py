@@ -474,6 +474,15 @@ class ServerIntegrationTests(unittest.TestCase):
         try:
             customer = client.post("/api/customers", headers={"X-CSRF-Token":csrf}, json={"company":"Artwork Customer"}).json()
             order = client.post("/api/orders", headers={"X-CSRF-Token":csrf}, json={"customer_id":customer["id"],"location_id":self.location["id"],"status":"New","priority":"Normal","received_date":"2026-10-03","items":[{"item_name":"Banner","quantity":1,"unit_price":10}]}).json()
+            other_order = client.post("/api/orders", headers={"X-CSRF-Token":csrf}, json={"customer_id":customer["id"],"location_id":self.location["id"],"status":"New","priority":"Normal","received_date":"2026-10-03","items":[{"item_name":"Poster","quantity":1,"unit_price":8}]}).json()
+
+            def artwork_status(order_id):
+                rows = client.get(f"/api/orders?location_id={self.location['id']}&limit=250").json()["orders"]
+                return next(x["has_artwork"] for x in rows if x["id"] == order_id)
+
+            self.assertFalse(artwork_status(order["id"]))
+            self.assertFalse(artwork_status(other_order["id"]))
+
             too_big = client.post(f"/api/orders/{order['id']}/files/upload-authorizations", headers={"X-CSRF-Token":csrf}, json={"filename":"huge.pdf","mime_type":"application/pdf","size_bytes":400*1024*1024})
             self.assertEqual(too_big.status_code,400)
             disguised_executable = client.post(f"/api/orders/{order['id']}/files/upload-authorizations", headers={"X-CSRF-Token":csrf}, json={"filename":"invoice.exe","mime_type":"application/octet-stream","size_bytes":10})
@@ -485,6 +494,9 @@ class ServerIntegrationTests(unittest.TestCase):
             storage.mark_uploaded(payload["object_key"], b"0123456789", "application/pdf")
             finalized=client.post(f"/api/orders/{order['id']}/files/finalize", headers={"X-CSRF-Token":csrf}, json={"attachment_id":attachment_id})
             self.assertEqual(finalized.status_code,200,finalized.text); self.assertTrue(finalized.json()["active"])
+            self.assertTrue(artwork_status(order["id"]))
+            self.assertFalse(artwork_status(other_order["id"]))
+
             listed=client.get(f"/api/orders/{order['id']}/files").json()["files"]
             self.assertTrue(any(x["id"]==attachment_id for x in listed))
             download=client.get(f"/api/orders/{order['id']}/files/{attachment_id}/download")
@@ -492,6 +504,7 @@ class ServerIntegrationTests(unittest.TestCase):
             deleted=client.delete(f"/api/orders/{order['id']}/files/{attachment_id}", headers={"X-CSRF-Token":csrf})
             self.assertEqual(deleted.status_code,200,deleted.text)
             self.assertFalse(any(x["id"]==attachment_id for x in client.get(f"/api/orders/{order['id']}/files").json()["files"]))
+            self.assertFalse(artwork_status(order["id"]))
         finally:
             client.__exit__(None,None,None)
 
