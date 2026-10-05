@@ -15,6 +15,7 @@ type SessionState = {
   loading: boolean
   refresh: () => Promise<void>
   setSession: (session: SessionInfo) => void
+  switchLocation: (locationId: string) => Promise<void>
   logout: (clearCache?: boolean) => Promise<void>
 }
 
@@ -93,6 +94,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [finishPendingLogout, setSession])
 
+  const switchLocation = useCallback(async (locationId: string) => {
+    if (!navigator.onLine) throw new Error('Store switching requires an online connection')
+    const next = await apiFetch<SessionInfo>('/api/web/auth/location', {
+      method: 'POST',
+      body: JSON.stringify({ location_id: locationId }),
+    })
+    setSession(next)
+  }, [setSession])
+
   const logout = useCallback(async (clearCache = true) => {
     const csrf = session?.csrf_token || getCsrfToken()
     let deferServerLogout = !navigator.onLine
@@ -125,8 +135,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [refresh])
 
   const value = useMemo(
-    () => ({ session, loading, refresh, setSession, logout }),
-    [session, loading, refresh, setSession, logout],
+    () => ({ session, loading, refresh, setSession, switchLocation, logout }),
+    [session, loading, refresh, setSession, switchLocation, logout],
   )
   return <Context.Provider value={value}>{children}</Context.Provider>
 }
