@@ -14,7 +14,7 @@ from local_store import ORDER_STATUSES, PRIORITIES, LocalStore, app_data_dir
 from sync_engine import SyncWorker
 
 APP_TITLE = "Print Order Manager — Multi-Store"
-BG, NAV, BLUE, DARK_BLUE = "#f4f6f8", "#152b45", "#1f5fa8", "#174a82"
+BG, NAV, BLUE, DARK_BLUE = "#f4f8fb", "#084b72", "#1f8fce", "#0b5f8f"
 TEXT, MUTED, RED, GREEN, ORANGE = "#1d2733", "#617080", "#b42318", "#26734d", "#a15c00"
 
 
@@ -84,7 +84,7 @@ class PrintOrderApp(tk.Tk):
             font=("Segoe UI Semibold", 16),
         )
         style.configure(
-            "NavInfo.TLabel", background=NAV, foreground="#b7c8da", font=("Segoe UI", 9)
+            "NavInfo.TLabel", background=NAV, foreground="#d9f2ff", font=("Segoe UI", 9)
         )
         style.configure("Nav.TButton", padding=(12, 10), anchor="w", font=("Segoe UI Semibold", 10))
         style.configure("Primary.TButton", padding=(10, 7), foreground="white", background=BLUE)
@@ -909,12 +909,12 @@ class PrintOrderApp(tk.Tk):
         if order.get("discount_mode") == "percent":
             discount_label += f" ({float(order.get('discount_percent', 0)):g}%)"
         page = f"""<!doctype html><meta charset='utf-8'><title>{esc(order["order_number"])}</title><style>
-        body{{font:13px Segoe UI,Arial;color:#2b211d;margin:32px}}header{{display:flex;justify-content:space-between;border-bottom:4px solid #ffb500;padding-bottom:12px}}h1{{margin:0;color:#351c15}}table{{border-collapse:collapse;width:100%;margin-top:15px}}th{{background:#fff3cc;color:#351c15;text-align:left}}th,td{{padding:8px;border-bottom:1px solid #e4ddd5}}.n{{text-align:right}}.grid{{display:grid;grid-template-columns:1fr 1fr;gap:25px;margin-top:20px}}.totals{{width:330px;margin-left:auto}}.notes{{white-space:pre-wrap;border:1px solid #d8c9b6;padding:10px;min-height:45px}}@media print{{body{{margin:12mm}}.tip{{display:none}}}}</style>
-        <header><div><h1>PRINT WORK ORDER</h1><b>{esc(order["location_name"])} #{esc(order["store_number"])}</b></div><div><b>{esc(order["order_number"])}</b><br>{esc(order["status"])}<br>Priority: {esc(order["priority"])}</div></header>
+        body{{font:13px Segoe UI,Arial;color:#1f2d37;margin:32px;background:#fff}}header{{display:flex;justify-content:space-between;align-items:stretch;border-bottom:4px solid #1f8fce;padding-bottom:12px}}.brand{{display:flex;flex-direction:column;justify-content:center}}.brand-name{{display:inline-block;width:max-content;background:#084b72;color:white;padding:7px 10px;border-radius:5px;font-weight:900;letter-spacing:.06em;font-size:18px}}.brand-sub{{margin-top:6px;color:#0b5f8f;font-weight:700}}.order-meta{{text-align:right}}.order-meta .label{{font-size:10px;letter-spacing:.12em;color:#647582;font-weight:800}}.order-meta .number{{font-size:20px;color:#084b72;font-weight:800}}.location{{margin-top:14px;background:#e6f6ff;border-left:4px solid #1f8fce;padding:9px 11px;color:#084b72;font-weight:700}}h1,h2,h3{{color:#0b5f8f}}table{{border-collapse:collapse;width:100%;margin-top:15px}}th{{background:#f0f8fd;color:#0b5f8f;text-align:left}}th,td{{padding:8px;border-bottom:1px solid #d7e3eb}}.n{{text-align:right}}.grid{{display:grid;grid-template-columns:1fr 1fr;gap:25px;margin-top:20px}}.totals{{width:330px;margin-left:auto}}.notes{{white-space:pre-wrap;border:1px solid #bfd7e5;padding:10px;min-height:45px}}footer{{margin-top:24px;padding-top:10px;border-top:2px solid #1f8fce;color:#647582;font-size:11px;display:flex;justify-content:space-between;gap:16px}}@media print{{body{{margin:12mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}}.brand-name{{background:transparent;color:#084b72;border:2px solid #084b72}}.location{{background:transparent;border:1px solid #9fc9df;border-left:4px solid #1f8fce}}.tip{{display:none}}}}</style>
+        <header><div class='brand'><div class='brand-name'>THE UPS STORE®</div><div class='brand-sub'>Print &amp; Business Services</div></div><div class='order-meta'><div class='label'>WORK ORDER</div><div class='number'>{esc(order["order_number"])}</div><div>{esc(order["status"])}</div><div>Priority: {esc(order["priority"])}</div></div></header><div class='location'>{esc(order["location_name"])} · Store #{esc(order["store_number"])}</div>
         <div class='grid'><div><b>Customer</b><br>{esc(customer)}<br>{esc(order["phone"])}<br>{esc(order["email"])}</div><div><b>Received:</b> {esc(order["received_date"])}<br><b>Due:</b> {esc(order["due_date"] or "Not set")}<br><b>Assigned:</b> {esc(order["assigned_to"])}<br><b>Delivery:</b> {esc(order["delivery_method"])}</div></div>
         <h2>{esc(order["description"] or "Order Items")}</h2><table><tr><th>Item</th><th>Qty</th><th>Specifications</th><th>Unit</th><th>Amount</th></tr>{items}</table>
         <table class='totals'><tr><td>Subtotal</td><td class='n'>{money(order["subtotal"])}</td></tr><tr><td>{esc(discount_label)}</td><td class='n'>-{money(order["discount"])}</td></tr><tr><td>Tax</td><td class='n'>{money(order["total"] - (max(order["subtotal"] - order["discount"], 0)))}</td></tr><tr><td><b>Total</b></td><td class='n'><b>{money(order["total"])}</b></td></tr><tr><td>Deposit</td><td class='n'>-{money(order["deposit"])}</td></tr><tr><td><b>Balance</b></td><td class='n'><b>{money(order["balance"])}</b></td></tr></table>
-        <h3>Production Notes</h3><div class='notes'>{esc(order["production_notes"])}</div><h3>Customer Notes</h3><div class='notes'>{esc(order["customer_notes"])}</div><p class='tip'>Press Ctrl+P to print or save as PDF.</p>"""
+        <h3>Production Notes</h3><div class='notes'>{esc(order["production_notes"])}</div><h3>Customer Notes</h3><div class='notes'>{esc(order["customer_notes"])}</div><footer><span>The UPS Store® · {esc(order["location_name"])} · Store #{esc(order["store_number"])}</span><span>Work Order {esc(order["order_number"])}</span></footer><p class='tip'>Press Ctrl+P to print or save as PDF.</p>"""
         path = app_data_dir() / f"{order['order_number']}.html"
         path.write_text(page, encoding="utf-8")
         webbrowser.open(path.as_uri())

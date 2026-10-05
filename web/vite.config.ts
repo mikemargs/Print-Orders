@@ -11,8 +11,8 @@ export default defineConfig({
         name: 'Print Order Manager',
         short_name: 'Print Orders',
         description: 'Multi-store print order production management',
-        theme_color: '#351c15',
-        background_color: '#f7f4ef',
+        theme_color: '#084b72',
+        background_color: '#f4f8fb',
         display: 'standalone',
         start_url: '/',
         icons: [
