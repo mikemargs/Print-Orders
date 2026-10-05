@@ -17,6 +17,6 @@ export interface WorkOrder {
   received_date: string; due_date: string; assigned_to: string; delivery_method: string; po_number: string; description: string;
   artwork_path: string; production_notes: string; customer_notes: string; tax_rate: number; deposit: number; discount: number;
   discount_mode: 'amount' | 'percent'; discount_percent: number; subtotal: number; total: number; balance: number;
-  items: LineItem[]; updated_at: string; updated_by: string; is_deleted: boolean
+  items: LineItem[]; updated_at: string; updated_by: string; is_deleted: boolean; has_artwork?: boolean
 }
 export interface Attachment { id: string; order_id: string; object_key: string; original_filename: string; mime_type: string; size_bytes: number; uploaded_by: string; created_at: string; checksum: string; active: boolean; deleted?: boolean }
