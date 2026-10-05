@@ -9,3 +9,5 @@
 .compact-filter input { min-width: 9.5rem; }
 
 .discount-preview{display:flex;align-items:baseline;justify-content:flex-end;gap:.65rem;padding:.8rem 1rem;background:var(--ups-cream);border-left:4px solid var(--ups-gold);border-radius:.55rem;color:var(--ups-brown)}.discount-preview strong{font-size:1.15rem}.discount-preview small{color:var(--muted)}
+
+.secondary:hover{background:#f3eadb;color:var(--ups-brown)}.danger:hover{background:#861f1f;color:#fff}.link-button:hover,.danger-link:hover{background:transparent;text-decoration:underline;transform:none}button:disabled,.button[aria-disabled="true"]{opacity:.58;cursor:not-allowed;transform:none}
