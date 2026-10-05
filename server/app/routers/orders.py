@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from ..database import Customer, WorkOrder
+from ..database import ArtworkFile, Customer, WorkOrder
 from ..schemas.api import OrderCreate, OrderUpdate, VersionBody
 from ..services.common import Conflict, Forbidden, Invalid
 from ..services.records import create_or_update_order, delete_order, serialize_record
@@ -35,7 +35,23 @@ def list_orders(search: str='', location_id: str='', status: str='', priority: s
         needle=f"%{search.strip()}%"
         q=q.join(Customer,Customer.id==WorkOrder.customer_id).where(or_(WorkOrder.order_number.ilike(needle),WorkOrder.description.ilike(needle),Customer.company.ilike(needle),Customer.first_name.ilike(needle),Customer.last_name.ilike(needle)))
     rows=db.scalars(q.order_by(WorkOrder.due_date,WorkOrder.updated_at.desc()).offset(offset).limit(limit)).all()
-    return {'orders':[serialize_record(x) for x in rows]}
+    order_ids=[row.id for row in rows]
+    artwork_order_ids=set()
+    if order_ids:
+        artwork_order_ids=set(db.scalars(
+            select(ArtworkFile.work_order_id).where(
+                ArtworkFile.company_id==auth.company_id,
+                ArtworkFile.work_order_id.in_(order_ids),
+                ArtworkFile.active.is_(True),
+                ArtworkFile.deleted.is_(False),
+            )
+        ).all())
+    serialized=[]
+    for row in rows:
+        payload=serialize_record(row)
+        payload['has_artwork']=row.id in artwork_order_ids
+        serialized.append(payload)
+    return {'orders':serialized}
 
 @router.post('',status_code=201)
 def create_order(body: OrderCreate, auth=Depends(web_mutation_context), db: Session=Depends(get_web_db)):

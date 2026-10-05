@@ -75,13 +75,20 @@ export function OrdersPage() {
     </div>
     <div className="panel table-wrap">
       <table>
-        <thead><tr><th>Order</th><th>Status</th><th>Priority</th><th>Due</th><th>Description</th><th>Total</th></tr></thead>
+        <thead><tr><th>Order</th><th>Status</th><th>Priority</th><th>Due</th><th>Description</th><th>Artwork</th><th>Total</th></tr></thead>
         <tbody>{query.data?.orders.map(order => <tr key={order.id}>
           <td><Link to={`/orders/${order.id}`}>{order.order_number}</Link></td>
           <td>{order.status}</td>
           <td><span className={`priority ${order.priority.toLowerCase()}`}>{order.priority}</span></td>
           <td>{order.due_date}</td>
           <td>{order.description}</td>
+          <td>
+            {order.has_artwork === true
+              ? <span className="artwork-status uploaded">Uploaded</span>
+              : order.has_artwork === false
+                ? <span className="artwork-status missing">Not Uploaded</span>
+                : <span className="artwork-status unknown">Unknown</span>}
+          </td>
           <td>${order.total.toFixed(2)}</td>
         </tr>)}</tbody>
       </table>
