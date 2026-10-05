@@ -13,7 +13,7 @@ export function OrdersPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [priority, setPriority] = useState('')
-  const [locationId, setLocationId] = useState('')
+  const [locationId, setLocationId] = useState(session?.location.id ?? '')
   const [dueStart, setDueStart] = useState('')
   const [dueEnd, setDueEnd] = useState('')
 

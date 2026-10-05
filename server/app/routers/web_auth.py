@@ -37,6 +37,10 @@ class WebEmployeeLogin(BaseModel):
     location_id: str
 
 
+class WebLocationSwitch(BaseModel):
+    location_id: str
+
+
 def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
@@ -63,6 +67,26 @@ def location_public(location: Location) -> dict:
         "store_number": location.store_number,
         "timezone": location.timezone,
         "active": location.active,
+    }
+
+
+def allowed_locations(db: Session, company_id: str, employee: Employee) -> list[Location]:
+    locations = db.scalars(
+        select(Location).where(Location.company_id == company_id, Location.active.is_(True))
+    ).all()
+    if employee.role == "admin" or not employee.location_ids:
+        return list(locations)
+    allowed = set(employee.location_ids)
+    return [location for location in locations if location.id in allowed]
+
+
+def session_payload(company: Company, employee: Employee, location: Location, locations: list[Location], csrf: str) -> dict:
+    return {
+        "csrf_token": csrf,
+        "employee": employee_public(employee),
+        "location": location_public(location),
+        "locations": [location_public(x) for x in locations],
+        "company": {"id": company.id, "name": company.name, "code": company.code},
     }
 
 
@@ -137,16 +161,50 @@ def web_employee_login(
         path="/",
     )
     response.delete_cookie(COMPANY_CHALLENGE_COOKIE, path="/", secure=cookie_secure(), httponly=True, samesite="strict")
-    locations = db.scalars(
-        select(Location).where(Location.company_id == company_id, Location.active.is_(True))
-    ).all()
-    return {
-        "csrf_token": csrf,
-        "employee": employee_public(employee),
-        "location": location_public(location),
-        "locations": [location_public(x) for x in locations],
-        "company": {"id": company.id, "name": company.name, "code": company.code},
-    }
+    locations = allowed_locations(db, company_id, employee)
+    return session_payload(company, employee, location, locations, csrf)
+
+
+@router.post("/auth/location")
+def web_switch_location(
+    body: WebLocationSwitch,
+    response: Response,
+    session_token: str = Cookie(default="", alias=EMPLOYEE_SESSION_COOKIE),
+    csrf_token: str = Header(default="", alias="X-CSRF-Token"),
+    db: Session = Depends(get_db),
+):
+    auth, claims = resolve_web_session(db, session_token)
+    require_csrf(claims, csrf_token)
+    company = db.get(Company, auth.company_id)
+    employee = db.get(Employee, auth.employee_id)
+    location = db.get(Location, body.location_id)
+    if not company or not company.active:
+        raise HTTPException(403, "Company access has been disabled")
+    if not employee or not employee.active:
+        raise HTTPException(403, "Employee access has been disabled")
+    if not location or location.company_id != company.id or not location.active:
+        raise HTTPException(400, "Store location is not active")
+    if employee.role != "admin" and employee.location_ids and location.id not in employee.location_ids:
+        raise HTTPException(403, "Employee is not assigned to this store")
+
+    next_auth = AuthContext(
+        company.id,
+        employee.id,
+        employee.role,
+        location.id,
+        int(employee.auth_version or 1),
+    )
+    next_session_token, csrf = create_employee_session(next_auth)
+    response.set_cookie(
+        EMPLOYEE_SESSION_COOKIE,
+        next_session_token,
+        max_age=EMPLOYEE_SESSION_HOURS * 3600,
+        secure=cookie_secure(),
+        httponly=True,
+        samesite="strict",
+        path="/",
+    )
+    return session_payload(company, employee, location, allowed_locations(db, company.id, employee), csrf)
 
 
 @router.get("/session")
@@ -155,16 +213,8 @@ def web_session(session_token: str = Cookie(default="", alias=EMPLOYEE_SESSION_C
     company = db.get(Company, auth.company_id)
     employee = db.get(Employee, auth.employee_id)
     location = db.get(Location, auth.location_id)
-    locations = db.scalars(
-        select(Location).where(Location.company_id == auth.company_id, Location.active.is_(True))
-    ).all()
-    return {
-        "csrf_token": claims["csrf"],
-        "company": {"id": company.id, "name": company.name, "code": company.code},
-        "employee": employee_public(employee),
-        "location": location_public(location),
-        "locations": [location_public(x) for x in locations],
-    }
+    locations = allowed_locations(db, auth.company_id, employee)
+    return session_payload(company, employee, location, locations, claims["csrf"])
 
 
 @router.post("/auth/logout")
