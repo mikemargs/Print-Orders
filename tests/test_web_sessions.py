@@ -84,5 +84,113 @@ class WebSessionTests(unittest.TestCase):
         self.assertEqual(self.client.get("/api/web/session").status_code, 401)
 
 
+    def test_switch_location_rotates_session_and_csrf(self):
+        body = self.login()
+        second_location_id = str(uuid.uuid4())
+        with SessionLocal() as db:
+            db.add(
+                Location(
+                    id=second_location_id,
+                    company_id=self.company_id,
+                    name="Second Store",
+                    store_number=f"9{uuid.uuid4().int % 1000:03d}",
+                    active=True,
+                )
+            )
+            db.commit()
+
+        denied = self.client.post(
+            "/api/web/auth/location",
+            json={"location_id": second_location_id},
+        )
+        self.assertEqual(denied.status_code, 403)
+
+        switched = self.client.post(
+            "/api/web/auth/location",
+            headers={"X-CSRF-Token": body["csrf_token"]},
+            json={"location_id": second_location_id},
+        )
+        self.assertEqual(switched.status_code, 200, switched.text)
+        switched_body = switched.json()
+        self.assertEqual(switched_body["location"]["id"], second_location_id)
+        self.assertNotEqual(switched_body["csrf_token"], body["csrf_token"])
+
+        session = self.client.get("/api/web/session")
+        self.assertEqual(session.status_code, 200, session.text)
+        self.assertEqual(session.json()["location"]["id"], second_location_id)
+
+        stale_csrf = self.client.post(
+            "/api/web/auth/logout",
+            headers={"X-CSRF-Token": body["csrf_token"]},
+        )
+        self.assertEqual(stale_csrf.status_code, 403)
+        logout = self.client.post(
+            "/api/web/auth/logout",
+            headers={"X-CSRF-Token": switched_body["csrf_token"]},
+        )
+        self.assertEqual(logout.status_code, 200, logout.text)
+
+    def test_switch_location_rejects_unassigned_store(self):
+        assigned_location_id = str(uuid.uuid4())
+        blocked_location_id = str(uuid.uuid4())
+        employee_id = str(uuid.uuid4())
+        with SessionLocal() as db:
+            db.add_all(
+                [
+                    Location(
+                        id=assigned_location_id,
+                        company_id=self.company_id,
+                        name="Assigned Store",
+                        store_number=f"8{uuid.uuid4().int % 1000:03d}",
+                        active=True,
+                    ),
+                    Location(
+                        id=blocked_location_id,
+                        company_id=self.company_id,
+                        name="Blocked Store",
+                        store_number=f"7{uuid.uuid4().int % 1000:03d}",
+                        active=True,
+                    ),
+                    Employee(
+                        id=employee_id,
+                        company_id=self.company_id,
+                        name="Limited User",
+                        pin_hash=hash_secret("1357"),
+                        role="employee",
+                        location_ids=[assigned_location_id],
+                        active=True,
+                        auth_version=1,
+                    ),
+                ]
+            )
+            db.commit()
+
+        company = self.client.post(
+            "/api/web/auth/company",
+            json={"company_code": self.company_code, "password": "company-password"},
+        )
+        self.assertEqual(company.status_code, 200, company.text)
+        login = self.client.post(
+            "/api/web/auth/employee",
+            json={
+                "employee_id": employee_id,
+                "pin": "1357",
+                "location_id": assigned_location_id,
+            },
+        )
+        self.assertEqual(login.status_code, 200, login.text)
+        self.assertEqual([x["id"] for x in login.json()["locations"]], [assigned_location_id])
+
+        blocked = self.client.post(
+            "/api/web/auth/location",
+            headers={"X-CSRF-Token": login.json()["csrf_token"]},
+            json={"location_id": blocked_location_id},
+        )
+        self.assertEqual(blocked.status_code, 403)
+        session = self.client.get("/api/web/session")
+        self.assertEqual(session.status_code, 200, session.text)
+        self.assertEqual(session.json()["location"]["id"], assigned_location_id)
+
+
 if __name__ == "__main__":
     unittest.main()
