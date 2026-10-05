@@ -251,6 +251,8 @@ async def add_browser_security_headers(request: Request, call_next):
     response.headers.setdefault(
         "Permissions-Policy", "camera=(), microphone=(), geolocation=()"
     )
+    if request.url.path == "/api" or request.url.path.startswith("/api/"):
+        response.headers.setdefault("Cache-Control", "no-store")
     if os.environ.get("APP_ENV", "").strip().lower() == "production":
         response.headers.setdefault(
             "Strict-Transport-Security", "max-age=31536000; includeSubDomains"

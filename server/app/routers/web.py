@@ -16,6 +16,25 @@ def _web_dist() -> Path:
     return (Path(__file__).resolve().parents[3] / "web" / "dist").resolve()
 
 
+NO_CACHE_HEADERS = {
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
+
+def _cache_headers(relative: str) -> dict[str, str]:
+    normalized = relative.lstrip("/")
+    if (
+        normalized in {"", "index.html", "sw.js", "registerSW.js", "manifest.webmanifest"}
+        or normalized.startswith("workbox-")
+    ):
+        return dict(NO_CACHE_HEADERS)
+    if normalized.startswith("assets/"):
+        return {"Cache-Control": "public, max-age=31536000, immutable"}
+    return {"Cache-Control": "public, max-age=3600, must-revalidate"}
+
+
 def _safe_file(root: Path, relative: str) -> Path | None:
     try:
         candidate = (root / relative).resolve()
@@ -33,9 +52,9 @@ def spa_fallback(full_path: str):
     root = _web_dist()
     direct = _safe_file(root, full_path) if full_path else None
     if direct is not None:
-        return FileResponse(direct)
+        return FileResponse(direct, headers=_cache_headers(full_path))
 
     index = _safe_file(root, "index.html")
     if index is None:
         raise HTTPException(404, "Web application has not been built")
-    return FileResponse(index, media_type="text/html")
+    return FileResponse(index, media_type="text/html", headers=NO_CACHE_HEADERS)
