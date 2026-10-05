@@ -38,18 +38,28 @@ function IssueForm({source}:{source?:CustomerIssue}){
  const candidates=wallTimeCandidates(occurred,timezone)
  const eligibleEmployees=options.data?.employees.filter(e=>e.role==='admin'||!e.location_ids.length||e.location_ids.includes(values.location_id))||[]
  function change<K extends keyof IssueInput>(key:K,value:IssueInput[K]){setValues(old=>({...old,[key]:value,...(key==='customer_id'||key==='location_id'?{work_order_id:null}:{}),...(key==='location_id'?{assigned_employee_id:null}:{})}))}
- function saved(row:CustomerIssue){setCurrent(row);setValues(inputFrom(row));setResolution(row.resolution_summary);setConflict(null);setError('');void refresh()}
+ function saved(row:CustomerIssue,preserveDraft=false,submitted:(keyof IssueInput)[]=[]){
+  const baseline=current?inputFrom(current):null;const next=inputFrom(row)
+  const overlapping=preserveDraft&&baseline&&(Object.keys(next) as (keyof IssueInput)[]).some(key=>!submitted.includes(key)&&values[key]!==baseline[key]&&next[key]!==baseline[key]&&values[key]!==next[key])
+  if(overlapping){setConflict(row);setError('Review the current case before saving again. Another employee changed a field in your draft.');void refresh();return}
+  setValues(previous=>{
+   if(!preserveDraft||!baseline)return next
+   return Object.fromEntries(Object.entries(next).map(([key,value])=>[key,!submitted.includes(key as keyof IssueInput)&&previous[key as keyof IssueInput]!==baseline[key as keyof IssueInput]?previous[key as keyof IssueInput]:value])) as unknown as IssueInput
+  })
+  setResolution(previous=>preserveDraft&&previous!==(current?.resolution_summary||'')?previous:row.resolution_summary)
+  setCurrent(row);setConflict(null);setError('');void refresh()
+ }
  function failure(e:unknown){if(e instanceof ApiError&&e.status===409&&e.current){setConflict(e.current as CustomerIssue);setError('Review the current case before saving again. Your unsaved text is preserved.')}else setError(e instanceof Error?e.message:'Unable to save')}
  async function save(event:FormEvent){event.preventDefault();if(disabled)return;setBusy(true);setError('');setNotice('');try{const row=current?await updateIssue(current.id,{...values,version:current.version}):await createIssue(values);saved(row);setNotice('Case saved.');if(!current)navigate(`/issues/${row.id}`,{replace:true})}catch(e){failure(e)}finally{setBusy(false)}}
- async function statusChange(resolve:boolean){if(disabled||!current)return;setBusy(true);setError('');setNotice('');try{const row=await updateIssue(current.id,resolve?{version:current.version,status:'Resolved',resolution_summary:resolution}:{version:current.version,status:'Open',reopen_reason:reopenReason});saved(row);setReopenReason('');setNotice(resolve?'Case resolved.':'Case reopened.')}catch(e){failure(e)}finally{setBusy(false)}}
- async function markProgress(status:string){if(disabled||!current)return;setBusy(true);setError('');try{saved(await updateIssue(current.id,{version:current.version,status}));setNotice('Status updated.')}catch(e){failure(e)}finally{setBusy(false)}}
+ async function statusChange(resolve:boolean){if(disabled||!current)return;setBusy(true);setError('');setNotice('');try{const row=await updateIssue(current.id,resolve?{version:current.version,status:'Resolved',resolution_summary:resolution}:{version:current.version,status:'Open',reopen_reason:reopenReason});saved(row,true);setReopenReason('');setNotice(resolve?'Case resolved.':'Case reopened.')}catch(e){failure(e)}finally{setBusy(false)}}
+ async function markProgress(status:string){if(disabled||!current)return;setBusy(true);setError('');try{saved(await updateIssue(current.id,{version:current.version,status}),true);setNotice('Status updated.')}catch(e){failure(e)}finally{setBusy(false)}}
  async function log(event:FormEvent){event.preventDefault();if(disabled||!current)return
   const instant=candidates.length===1?candidates[0]:candidates[Number(occurrenceChoice)]
   if(!pendingLog.current&&(!candidates.length||(candidates.length>1&&occurrenceChoice===''))){setError('Choose a valid occurrence time. Repeated daylight-saving times require an offset choice.');return}
   if(!pendingLog.current)pendingLog.current={operation_id:crypto.randomUUID(),channel,occurred_at:instant,summary,...(updateFollowup?{version:current.version,next_action:logNext,follow_up_date:logDue||null}:{})}
   setBusy(true);setError('');setNotice('')
-  try{await logCommunication(current.id,pendingLog.current);pendingLog.current=null;setUncertainLog(false);setSummary('');setUpdateFollowup(false);setLogNext('');setLogDue('');setOccurred(storeWallTime(timezone));setOccurrenceChoice('');setNotice('Communication logged.');void refresh();try{saved(await getIssue(current.id))}catch{setNotice('Communication logged. Refresh the case before making further changes.')}}
-  catch(e){if(e instanceof ApiError&&(e.status===0||e.status>=500)){setUncertainLog(true);setError('The result could not be confirmed. Retry this same communication to avoid duplicate entries.')}else{pendingLog.current=null;setUncertainLog(false);failure(e)}}finally{setBusy(false)}
+  try{await logCommunication(current.id,pendingLog.current);pendingLog.current=null;setUncertainLog(false);setSummary('');setUpdateFollowup(false);setLogNext('');setLogDue('');setOccurred(storeWallTime(timezone));setOccurrenceChoice('');setNotice('Communication logged.');void refresh();try{saved(await getIssue(current.id),true,updateFollowup?['next_action','follow_up_date']:[])}catch{setNotice('Communication logged. Refresh the case before making further changes.')}}
+  catch(e){if(!(e instanceof ApiError)||e.status===0||e.status>=500){setUncertainLog(true);setError('The result could not be confirmed. Retry this same communication to avoid duplicate entries.')}else{pendingLog.current=null;setUncertainLog(false);failure(e)}}finally{setBusy(false)}
  }
  return <section>
   <div className="page-heading"><div><h1>{current?'Customer issue':'New customer issue'}</h1>{current&&<p className="muted">{current.reference} · {current.status} · Updated {displayTime(current.updated_at,timezone)}</p>}</div><Link className="button secondary" to="/issues">Back to cases</Link></div>

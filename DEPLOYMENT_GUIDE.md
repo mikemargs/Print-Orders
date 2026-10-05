@@ -134,9 +134,27 @@ hosting service or email provider is required.
    and service worker use no-store/revalidation headers; refresh installed PWAs
    after the new service worker activates.
 
-For rollback, redeploy the prior application version and retain the additive case
-and history tables. Do not downgrade/drop these tables after real cases have been
-recorded: doing so discards complaint history. The older app ignores the new tables.
+For rollback, build the prior application code **with the deployed migration
+history retained**. Do not directly redeploy an unmodified prior image: its startup
+runs Alembic and cannot recognize database revision `0007_customer_issues`.
+
+1. Prepare a checkout of the previous application revision.
+2. Copy the complete `server/alembic/versions/` directory from the deployed feature
+   revision into that checkout, retaining every migration through
+   `0007_customer_issues`. The new migration is self-contained and does not import
+   the new application's models.
+3. Build a rollback image from the previous application source and retained
+   migrations. Rehearse its `python migrate_database.py` startup step against a
+   restored backup/test database already at revision `0007_customer_issues`.
+4. Deploy that rollback build, then verify health and the prior application's
+   customer and order workflows. Keep the complaint/history tables intact so the
+   feature can be restored later.
+
+This sequence was rehearsed locally: the unmodified prior migration startup failed
+on revision 0007; retaining the deployed migrations let that prior startup step
+succeed while preserving a seeded customer, complaint and communication history.
+Do not downgrade/drop the new tables after real cases have been recorded: doing so
+discards complaint history. The older application code ignores the new tables.
 
 Manual communication logging only is included. There are no automatic reminders,
 email sending, complaint attachments or customer-facing portal. Customer issues

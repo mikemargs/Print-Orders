@@ -70,3 +70,54 @@ it('loads customer choices within the customer API page limit, including later p
  })
  mount('/issues/new');expect(await screen.findByRole('option',{name:'Last customer'})).toBeInTheDocument()
 })
+it('preserves unrelated unsaved case text when logging a communication',async()=>{
+ mount();await screen.findByDisplayValue('Wrong package')
+ fireEvent.change(screen.getByLabelText('Case title'),{target:{value:'My unsaved case title'}})
+ fireEvent.change(screen.getByLabelText('Issue description'),{target:{value:'My unsaved description'}})
+ fireEvent.change(screen.getByLabelText('Resolution summary'),{target:{value:'My resolution draft'}})
+ fireEvent.change(screen.getByLabelText('Communication summary'),{target:{value:'Customer called'}})
+ fireEvent.click(screen.getByRole('button',{name:'Log communication'}))
+ await screen.findByText('Communication logged.')
+ expect(screen.getByLabelText('Case title')).toHaveValue('My unsaved case title')
+ expect(screen.getByLabelText('Issue description')).toHaveValue('My unsaved description')
+ expect(screen.getByLabelText('Resolution summary')).toHaveValue('My resolution draft')
+})
+it('preserves unrelated unsaved case text when changing status',async()=>{
+ mount();await screen.findByDisplayValue('Wrong package')
+ fireEvent.change(screen.getByLabelText('Case title'),{target:{value:'My draft title'}})
+ fireEvent.change(screen.getByLabelText('Status',{exact:true}),{target:{value:'In Progress'}})
+ await screen.findByText('Status updated.')
+ expect(screen.getByLabelText('Case title')).toHaveValue('My draft title')
+})
+it('retains the identical log operation after a response-body network failure',async()=>{
+ const original=vi.mocked(apiFetch).getMockImplementation()!;const bodies:string[]=[]
+ vi.mocked(apiFetch).mockImplementation((path,opts)=>{
+  if(path.includes('/activities')&&opts?.method==='POST'){
+   bodies.push(String(opts.body));if(bodies.length===1){const response=new Response('{}',{status:200,headers:{'Content-Type':'application/json'}});vi.spyOn(response,'json').mockRejectedValue(new TypeError('Failed to read response body'));return response.json()}return Promise.resolve({id:'act'})
+  }
+  return original(path,opts)
+ })
+ mount();await screen.findByDisplayValue('Wrong package')
+ fireEvent.change(screen.getByLabelText('Communication summary'),{target:{value:'Already recorded'}})
+ fireEvent.click(screen.getByRole('button',{name:'Log communication'}))
+ expect(await screen.findByRole('button',{name:'Retry communication'})).toBeEnabled()
+ expect(screen.getByLabelText('Communication summary')).toBeDisabled()
+ fireEvent.click(screen.getByRole('button',{name:'Retry communication'}))
+ await screen.findByText('Communication logged.')
+ expect(bodies).toHaveLength(2);expect(bodies[0]).toBe(bodies[1])
+})
+it('requires review when a log refresh finds a concurrent change to a dirty field',async()=>{
+ const original=vi.mocked(apiFetch).getMockImplementation()!;let logged=false
+ vi.mocked(apiFetch).mockImplementation((path,opts)=>{
+  if(path==='/api/issues/i/activities'&&opts?.method==='POST'){logged=true;return Promise.resolve({id:'act'})}
+  if(path==='/api/issues/i'&&logged)return Promise.resolve({...issueFixture,version:2,title:'Other employee title'})
+  return original(path,opts)
+ })
+ mount();await screen.findByDisplayValue('Wrong package')
+ fireEvent.change(screen.getByLabelText('Case title'),{target:{value:'My draft title'}})
+ fireEvent.change(screen.getByLabelText('Communication summary'),{target:{value:'Called customer'}})
+ fireEvent.click(screen.getByRole('button',{name:'Log communication'}))
+ expect(await screen.findByText(/Review the current case/)).toBeVisible()
+ expect(screen.getByLabelText('Case title')).toHaveValue('My draft title')
+ expect(screen.getByRole('button',{name:'Save case'})).toBeDisabled()
+})
