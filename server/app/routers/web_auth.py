@@ -70,14 +70,12 @@ def location_public(location: Location) -> dict:
     }
 
 
-def allowed_locations(db: Session, company_id: str, employee: Employee) -> list[Location]:
-    locations = db.scalars(
-        select(Location).where(Location.company_id == company_id, Location.active.is_(True))
-    ).all()
-    if employee.role == "admin" or not employee.location_ids:
-        return list(locations)
-    allowed = set(employee.location_ids)
-    return [location for location in locations if location.id in allowed]
+def active_locations(db: Session, company_id: str) -> list[Location]:
+    return list(
+        db.scalars(
+            select(Location).where(Location.company_id == company_id, Location.active.is_(True))
+        ).all()
+    )
 
 
 def session_payload(company: Company, employee: Employee, location: Location, locations: list[Location], csrf: str) -> dict:
@@ -161,7 +159,7 @@ def web_employee_login(
         path="/",
     )
     response.delete_cookie(COMPANY_CHALLENGE_COOKIE, path="/", secure=cookie_secure(), httponly=True, samesite="strict")
-    locations = allowed_locations(db, company_id, employee)
+    locations = active_locations(db, company_id)
     return session_payload(company, employee, location, locations, csrf)
 
 
@@ -204,7 +202,7 @@ def web_switch_location(
         samesite="strict",
         path="/",
     )
-    return session_payload(company, employee, location, allowed_locations(db, company.id, employee), csrf)
+    return session_payload(company, employee, location, active_locations(db, company.id), csrf)
 
 
 @router.get("/session")
@@ -213,7 +211,7 @@ def web_session(session_token: str = Cookie(default="", alias=EMPLOYEE_SESSION_C
     company = db.get(Company, auth.company_id)
     employee = db.get(Employee, auth.employee_id)
     location = db.get(Location, auth.location_id)
-    locations = allowed_locations(db, auth.company_id, employee)
+    locations = active_locations(db, auth.company_id)
     return session_payload(company, employee, location, locations, claims["csrf"])
 
 
