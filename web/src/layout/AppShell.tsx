@@ -27,7 +27,7 @@ export function AppShell() {
     try {
       await switchLocation(locationId)
       await queryClient.invalidateQueries()
-      navigate('/', { replace: true })
+      navigate('/store-dashboard', { replace: true })
     } catch (error) {
       setStoreError(error instanceof Error ? error.message : 'Unable to switch stores')
     } finally {
@@ -62,7 +62,8 @@ export function AppShell() {
       </div>
     </header>
     <aside className="sidebar" aria-label="Main navigation">
-      <NavLink to="/" end>Dashboard</NavLink>
+      <NavLink to="/" end>Main Dashboard</NavLink>
+      <NavLink to="/store-dashboard">Store Dashboard</NavLink>
       <NavLink to="/orders">Work Orders</NavLink>
       <NavLink to="/customers">Customers</NavLink>
       {(role === 'supervisor' || role === 'admin') && <NavLink to="/reports">Reports</NavLink>}

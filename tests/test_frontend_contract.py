@@ -10,10 +10,13 @@ class FrontendOfflineSessionContractTests(unittest.TestCase):
         self.assertIn("JSON.stringify(session)", source)
         self.assertNotIn("const { csrf_token: _csrf, ...safe } = session", source)
 
-    def test_dashboard_is_scoped_to_selected_store_online_and_offline(self):
-        source = (ROOT / 'web/src/features/dashboard/DashboardPage.tsx').read_text(encoding='utf-8')
-        self.assertIn("location_id=${encodeURIComponent(locationId)}", source)
-        self.assertIn("order.location_id===locationId", source)
+    def test_main_and_store_dashboards_keep_distinct_scopes(self):
+        main = (ROOT / 'web/src/features/dashboard/DashboardPage.tsx').read_text(encoding='utf-8')
+        store = (ROOT / 'web/src/features/dashboard/StoreDashboardPage.tsx').read_text(encoding='utf-8')
+        self.assertIn("/api/orders?limit=${PAGE_SIZE}&offset=${offset}", main)
+        self.assertNotIn("location_id=${encodeURIComponent(locationId)}", main)
+        self.assertIn("location_id=${encodeURIComponent(locationId)}", store)
+        self.assertIn("order.location_id === locationId", store)
 
     def test_non_admin_order_editor_only_offers_selected_store(self):
         source = (ROOT / 'web/src/features/orders/OrderEditor.tsx').read_text(encoding='utf-8')
