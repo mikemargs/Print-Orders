@@ -23,7 +23,9 @@ describe('toOrderFormValues', () => {
       customer_notes: '',
       tax_rate: 8.625,
       deposit: 10,
-      discount: 2,
+      discount: 4.79,
+      discount_mode: 'percent',
+      discount_percent: 10,
       subtotal: 47.9,
       total: 52.03,
       balance: 42.03,
@@ -50,7 +52,9 @@ describe('toOrderFormValues', () => {
       customer_notes: '',
       tax_rate: 8.625,
       deposit: 10,
-      discount: 2,
+      discount: 4.79,
+      discount_mode: 'percent',
+      discount_percent: 10,
       items: [{ item_name: 'Poster', quantity: 1, unit_price: 47.9 }],
     })
     expect(payload).not.toHaveProperty('id')
