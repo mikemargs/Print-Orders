@@ -27,7 +27,9 @@ class MigrationTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             with closing(sqlite3.connect(db_path)) as conn:
                 tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+                work_order_cols = {row[1] for row in conn.execute("PRAGMA table_info(work_orders)")}
             self.assertTrue({'companies','locations','employees','customers','work_orders','sync_events','processed_operations','artwork_files'}.issubset(tables), tables)
+            self.assertTrue({"discount_mode", "discount_percent"}.issubset(work_order_cols))
 
     def test_bootstrap_upgrades_unversioned_existing_database(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -62,7 +64,9 @@ class MigrationTests(unittest.TestCase):
             self.assertIn("row_id", processed_cols)
             with closing(sqlite3.connect(db_path)) as conn:
                 artwork_cols = {row[1] for row in conn.execute("PRAGMA table_info(artwork_files)")}
+                work_order_cols = {row[1] for row in conn.execute("PRAGMA table_info(work_orders)")}
             self.assertTrue({"size_bytes","active","deleted","object_key"}.issubset(artwork_cols))
+            self.assertTrue({"discount_mode", "discount_percent"}.issubset(work_order_cols))
 
     def test_bootstrap_refuses_to_guess_when_unversioned_schema_is_not_baseline(self):
         with tempfile.TemporaryDirectory() as folder:
