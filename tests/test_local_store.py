@@ -63,6 +63,30 @@ class LocalStoreTests(unittest.TestCase):
         self.assertAlmostEqual(order["balance"], 72.76)
         self.assertTrue(order["order_number"].startswith("WO-5127-"))
 
+    def test_offline_save_supports_percent_discount(self):
+        customer_id = self.store.save_customer({"company": "Percent Customer"})
+        order_id = self.store.save_order(
+            {
+                "customer_id": customer_id,
+                "location_id": self.location_id,
+                "status": "New",
+                "priority": "Normal",
+                "received_date": "2026-10-05",
+                "tax_rate": 8.625,
+                "discount_mode": "percent",
+                "discount_percent": 10,
+                "discount": 0,
+                "deposit": 0,
+                "description": "Percent order",
+            },
+            [{"item_name": "Poster", "quantity": 1, "unit_price": 100}],
+        )
+        order = self.store.get_order(order_id)
+        self.assertEqual(order["discount_mode"], "percent")
+        self.assertEqual(order["discount_percent"], 10)
+        self.assertEqual(order["discount"], 10)
+        self.assertAlmostEqual(order["total"], 97.76)
+
     def test_pin_cache(self):
         self.store.cache_employee_pin("emp-1", "246810")
         self.assertTrue(self.store.verify_cached_pin("emp-1", "246810"))
