@@ -127,6 +127,8 @@ class WorkOrder(Base):
     tax_rate: Mapped[Decimal] = mapped_column(Numeric(7, 4), default=0)
     deposit: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     discount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    discount_mode: Mapped[str] = mapped_column(String(10), default="amount")
+    discount_percent: Mapped[Decimal] = mapped_column(Numeric(7, 4), default=0)
     subtotal: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
