@@ -26,7 +26,7 @@ PRIORITIES = {"Normal","Rush","High"}
 DISCOUNT_MODES = {"amount", "percent"}
 MAX_MONEY = Decimal("9999999999.99")
 MAX_TAX_RATE = Decimal("999.9999")
-MAX_DISCOUNT_PERCENT = Decimal("100")
+MAX_DISCOUNT_PERCENT = Decimal(100)
 CUSTOMER_TEXT_LIMITS = {
     "company": 180, "first_name": 100, "last_name": 100, "phone": 60, "email": 180,
     "address1": 180, "address2": 180, "city": 100, "state": 60, "postal_code": 30,
