@@ -43,11 +43,58 @@ class ServiceTests(unittest.TestCase):
             order=create_or_update_order(db,self.auth,oid,0,{'customer_id':cid,'location_id':self.location,'status':'New','priority':'Normal','received_date':'2026-10-03','tax_rate':8.625,'items':[{'item_name':'P','quantity':1,'unit_price':100}]})
             self.assertEqual(float(order.total),108.63)
 
+    def test_order_service_calculates_percent_discount_before_tax(self):
+        cid = str(uuid.uuid4()); oid = str(uuid.uuid4())
+        with self.Session() as db:
+            create_or_update_customer(db, self.auth, cid, 0, {'company': 'C'})
+            order = create_or_update_order(
+                db,
+                self.auth,
+                oid,
+                0,
+                {
+                    'customer_id': cid,
+                    'location_id': self.location,
+                    'status': 'New',
+                    'priority': 'Normal',
+                    'received_date': '2026-10-05',
+                    'tax_rate': 8.625,
+                    'discount_mode': 'percent',
+                    'discount_percent': 10,
+                    'items': [{'item_name': 'P', 'quantity': 1, 'unit_price': 100}],
+                },
+            )
+            self.assertEqual(float(order.subtotal), 100.0)
+            self.assertEqual(float(order.discount), 10.0)
+            self.assertEqual(float(order.discount_percent), 10.0)
+            self.assertEqual(order.discount_mode, 'percent')
+            self.assertEqual(float(order.total), 97.76)
+
+    def test_order_service_rejects_percent_discount_over_100(self):
+        cid = str(uuid.uuid4())
+        with self.Session() as db:
+            create_or_update_customer(db, self.auth, cid, 0, {'company': 'C'})
+            with self.assertRaises(Invalid):
+                create_or_update_order(
+                    db,
+                    self.auth,
+                    str(uuid.uuid4()),
+                    0,
+                    {
+                        'customer_id': cid,
+                        'location_id': self.location,
+                        'received_date': '2026-10-05',
+                        'discount_mode': 'percent',
+                        'discount_percent': 100.01,
+                        'items': [],
+                    },
+                )
+
     def test_order_service_rejects_non_numeric_money_fields(self):
         cid = str(uuid.uuid4())
         with self.Session() as db:
             create_or_update_customer(db, self.auth, cid, 0, {'company': 'C'})
-            for field in ('tax_rate', 'deposit', 'discount'):
+            for field in ('tax_rate', 'deposit', 'discount', 'discount_percent'):
                 with self.subTest(field=field), self.assertRaises(Invalid):
                     create_or_update_order(
                         db,
