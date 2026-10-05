@@ -125,6 +125,8 @@ class OrderMutationPayload(BaseModel):
     tax_rate: Decimal | None = Field(default=None, ge=0, le=100)
     deposit: Decimal | None = Field(default=None, ge=0)
     discount: Decimal | None = Field(default=None, ge=0)
+    discount_mode: Literal["amount", "percent"] | None = None
+    discount_percent: Decimal | None = Field(default=None, ge=0, le=100)
     items: list[LineItemPayload] | None = None
 
     @field_validator("status")

@@ -57,6 +57,8 @@ class OrderCreate(BaseModel):
     tax_rate: Decimal = Decimal(0)
     deposit: Decimal = Decimal(0)
     discount: Decimal = Decimal(0)
+    discount_mode: str = "amount"
+    discount_percent: Decimal = Decimal(0)
     items: list[dict] = Field(default_factory=list)
 
 class OrderUpdate(BaseModel):
@@ -79,6 +81,8 @@ class OrderUpdate(BaseModel):
     tax_rate: Decimal | None = None
     deposit: Decimal | None = None
     discount: Decimal | None = None
+    discount_mode: str | None = None
+    discount_percent: Decimal | None = None
     items: list[dict] | None = None
 
     # Backward compatibility for older cached PWA bundles that echoed the full

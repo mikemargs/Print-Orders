@@ -103,6 +103,8 @@ class LocalStore:
                     artwork_path TEXT NOT NULL DEFAULT '', production_notes TEXT NOT NULL DEFAULT '',
                     customer_notes TEXT NOT NULL DEFAULT '', tax_rate REAL NOT NULL DEFAULT 0,
                     deposit REAL NOT NULL DEFAULT 0, discount REAL NOT NULL DEFAULT 0,
+                    discount_mode TEXT NOT NULL DEFAULT 'amount',
+                    discount_percent REAL NOT NULL DEFAULT 0,
                     subtotal REAL NOT NULL DEFAULT 0, total REAL NOT NULL DEFAULT 0,
                     balance REAL NOT NULL DEFAULT 0, items TEXT NOT NULL DEFAULT '[]'
                 );
@@ -132,6 +134,11 @@ class LocalStore:
             conflict_cols = {row[1] for row in conn.execute("PRAGMA table_info(conflicts)")}
             if "category" not in conflict_cols:
                 conn.execute("ALTER TABLE conflicts ADD COLUMN category TEXT NOT NULL DEFAULT 'conflict'")
+            order_cols = {row[1] for row in conn.execute("PRAGMA table_info(orders)")}
+            if "discount_mode" not in order_cols:
+                conn.execute("ALTER TABLE orders ADD COLUMN discount_mode TEXT NOT NULL DEFAULT 'amount'")
+            if "discount_percent" not in order_cols:
+                conn.execute("ALTER TABLE orders ADD COLUMN discount_percent REAL NOT NULL DEFAULT 0")
             conn.execute("INSERT OR IGNORE INTO meta(key,value) VALUES('sync_cursor','0')")
 
     @staticmethod
@@ -329,12 +336,23 @@ class LocalStore:
             clean["unit_price"] = max(float(clean.get("unit_price", 0) or 0), 0)
             subtotal += clean["quantity"] * clean["unit_price"]
             clean_items.append(clean)
-        discount = max(float(values.get("discount", 0) or 0), 0)
+        discount_mode = values.get("discount_mode", "amount")
+        discount_percent = max(float(values.get("discount_percent", 0) or 0), 0)
+        if discount_mode == "percent":
+            discount_percent = min(discount_percent, 100)
+            discount = round(subtotal * discount_percent / 100, 2)
+        else:
+            discount_mode = "amount"
+            discount_percent = 0.0
+            discount = max(float(values.get("discount", 0) or 0), 0)
         deposit = max(float(values.get("deposit", 0) or 0), 0)
         tax_rate = max(float(values.get("tax_rate", 0) or 0), 0)
         total = max(subtotal - discount, 0) * (1 + tax_rate / 100)
         return {
             "items": clean_items,
+            "discount": round(discount, 2),
+            "discount_mode": discount_mode,
+            "discount_percent": discount_percent,
             "subtotal": round(subtotal, 2),
             "total": round(total, 2),
             "balance": round(max(total - deposit, 0), 2),
@@ -360,6 +378,8 @@ class LocalStore:
             "tax_rate",
             "deposit",
             "discount",
+            "discount_mode",
+            "discount_percent",
         )
         with self.connect() as conn:
             old = conn.execute(
@@ -683,6 +703,8 @@ class LocalStore:
                 "tax_rate",
                 "deposit",
                 "discount",
+                "discount_mode",
+                "discount_percent",
                 "subtotal",
                 "total",
                 "balance",
@@ -690,7 +712,14 @@ class LocalStore:
             )
             values = []
             for key in fields:
-                value = payload.get(key, [] if key == "items" else "")
+                if key == "items":
+                    value = payload.get(key, [])
+                elif key == "discount_mode":
+                    value = payload.get(key, "amount")
+                elif key == "discount_percent":
+                    value = payload.get(key, 0)
+                else:
+                    value = payload.get(key, "")
                 if key == "items":
                     value = json.dumps(value)
                 elif key == "is_deleted":
