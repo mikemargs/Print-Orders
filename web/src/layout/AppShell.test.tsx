@@ -37,7 +37,7 @@ describe('AppShell store switcher', () => {
       switchLocation,
       logout: vi.fn(),
     })
-    vi.mocked(useOnline).mockReturnValue({ online: true, lastSyncAt: null })
+    vi.mocked(useOnline).mockReturnValue({ online: true, lastSyncAt: '' })
 
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -78,7 +78,7 @@ describe('AppShell store switcher', () => {
       switchLocation: vi.fn(),
       logout: vi.fn(),
     })
-    vi.mocked(useOnline).mockReturnValue({ online: false, lastSyncAt: null })
+    vi.mocked(useOnline).mockReturnValue({ online: false, lastSyncAt: '' })
 
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
