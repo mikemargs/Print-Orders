@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { ApiError, apiFetch, clearCsrfToken, getCsrfToken, setCsrfToken } from '../api/http'
 import type { SessionInfo } from '../api/types'
 import {
@@ -25,13 +26,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSessionState] = useState<SessionInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const mounted = useRef(true)
+  const queryClient = useQueryClient()
+  const identity = useRef('')
+  const clearIssueQueries = useCallback(() => {
+    void queryClient.cancelQueries({ queryKey: ['issues'] })
+    queryClient.removeQueries({ queryKey: ['issues'] })
+  }, [queryClient])
 
   const setSession = useCallback((next: SessionInfo) => {
     if (!mounted.current) return
+    const nextIdentity = `${next.company.id}:${next.employee.id}`
+    if (identity.current !== nextIdentity) clearIssueQueries()
+    identity.current = nextIdentity
     setCsrfToken(next.csrf_token)
     setSessionState(next)
     void cacheSessionInfo(next)
-  }, [])
+  }, [clearIssueQueries])
 
   const finishPendingLogout = useCallback(async () => {
     const pending = await pendingLogoutCsrf()
@@ -56,9 +66,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
     }
     clearCsrfToken()
+    clearIssueQueries()
+    identity.current = ''
     if (mounted.current) setSessionState(null)
     return true
-  }, [])
+  }, [clearIssueQueries])
 
   const refresh = useCallback(async () => {
     try {
@@ -70,6 +82,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         clearCsrfToken()
+        clearIssueQueries()
+        identity.current = ''
         if (mounted.current) setSessionState(null)
         await clearOfflineCache()
       } else if (
@@ -92,7 +106,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } finally {
       if (mounted.current) setLoading(false)
     }
-  }, [finishPendingLogout, setSession])
+  }, [finishPendingLogout, setSession, clearIssueQueries])
 
   const switchLocation = useCallback(async (locationId: string) => {
     if (!navigator.onLine) throw new Error('Store switching requires an online connection')
@@ -118,10 +132,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
 
     clearCsrfToken()
+    clearIssueQueries()
+    identity.current = ''
     if (mounted.current) setSessionState(null)
     if (clearCache) await clearOfflineCache()
     if (deferServerLogout && csrf) await setPendingLogoutCsrf(csrf)
-  }, [session])
+  }, [session, clearIssueQueries])
 
   useEffect(() => {
     mounted.current = true
