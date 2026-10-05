@@ -9,7 +9,7 @@ import { useIssueQuery, useRefreshIssues } from './useIssues'
 import { IssueTimeline } from './IssueTimeline'
 import { displayTime, storeWallTime, wallTimeCandidates } from './time'
 
-async function allCustomers(){const rows:Customer[]=[];for(let offset=0;;offset+=250){const result=await apiFetch<{customers:Customer[]}>(`/api/customers?limit=250&offset=${offset}`);rows.push(...result.customers);if(result.customers.length<250)return rows}}
+async function allCustomers(){const rows:Customer[]=[];for(let offset=0;;offset+=200){const result=await apiFetch<{customers:Customer[]}>(`/api/customers?limit=200&offset=${offset}`);rows.push(...result.customers);if(result.customers.length<200)return rows}}
 async function matchingOrders(customerId:string,locationId:string){const rows:WorkOrder[]=[];for(let offset=0;;offset+=250){const result=await apiFetch<{orders:WorkOrder[]}>(`/api/orders?customer_id=${encodeURIComponent(customerId)}&location_id=${encodeURIComponent(locationId)}&limit=250&offset=${offset}`);rows.push(...result.orders);if(result.orders.length<250)return rows}}
 function inputFrom(row:CustomerIssue):IssueInput{return {customer_id:row.customer_id,location_id:row.location_id,title:row.title,description:row.description,category:row.category,priority:row.priority,assigned_employee_id:row.assigned_employee_id,work_order_id:row.work_order_id,next_action:row.next_action,follow_up_date:row.follow_up_date}}
 

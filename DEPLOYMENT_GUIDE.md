@@ -111,3 +111,33 @@ Before a production release, require these checks to pass:
 - desktop disconnect/reconnect synchronization test
 - database restore exercise
 - representative large artwork upload/resume test
+
+## Deploying Customer Issues
+
+This feature uses the existing web/API service and company database; no additional
+hosting service or email provider is required.
+
+1. Back up the production database using the existing backup procedure.
+2. Build the reviewed feature version and deploy through the existing Render/Docker
+   workflow. The container runs `python migrate_database.py` before starting Uvicorn.
+   For a manual deployment, run that command from `server/` with production
+   `DATABASE_URL` before serving the new application.
+3. Verify Alembic revision `0007_customer_issues` is installed. It adds
+   `customer_issues` and `issue_activities` plus indexes; existing customer and order
+   data are preserved.
+4. Verify `/api/health`, sign in, and open **Customer Issues**. Test with a fictional
+   customer: create a case, log a call, change the follow-up, resolve and reopen.
+   Verify an employee can read another store's case but must switch to that store
+   to change it; administrators have cross-store write access.
+5. Confirm the Main Dashboard still shows pending print orders and now includes a
+   customer-issue summary. Existing assets have hashed filenames and the app shell
+   and service worker use no-store/revalidation headers; refresh installed PWAs
+   after the new service worker activates.
+
+For rollback, redeploy the prior application version and retain the additive case
+and history tables. Do not downgrade/drop these tables after real cases have been
+recorded: doing so discards complaint history. The older app ignores the new tables.
+
+Manual communication logging only is included. There are no automatic reminders,
+email sending, complaint attachments or customer-facing portal. Customer issues
+need an online connection; complaint histories are not cached persistently offline.

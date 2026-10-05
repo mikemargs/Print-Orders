@@ -29,8 +29,8 @@ from .database import (
 from .hybrid_auth import hybrid_admin, hybrid_admin_mutation, hybrid_supervisor
 from .routers.customers import router as customers_router
 from .routers.files import router as files_router
-from .routers.orders import router as orders_router
 from .routers.issues import router as issues_router
+from .routers.orders import router as orders_router
 from .routers.web import router as web_router
 from .routers.web_auth import router as web_auth_router
 from .security import (

@@ -58,3 +58,15 @@ it('shows logged text literally in history',async()=>{
  vi.mocked(apiFetch).mockImplementation((path,opts)=>path.includes('/activities')?Promise.resolve({activities:[{id:'act',activity_type:'communication',channel:'email',occurred_at:'2026-10-05T14:00:00Z',recorded_at:'2026-10-05T14:01:00Z',author_name:'Nick',summary:'<script>literal</script>',changed_fields:{}}],total:1}):original(path,opts))
  mount();expect(await screen.findByText('<script>literal</script>')).toBeVisible()
 })
+it('loads customer choices within the customer API page limit, including later pages',async()=>{
+ const original=vi.mocked(apiFetch).getMockImplementation()!
+ vi.mocked(apiFetch).mockImplementation((path,opts)=>{
+  if(path.startsWith('/api/customers')){
+   const url=new URL(path,'http://localhost');const limit=Number(url.searchParams.get('limit'));const offset=Number(url.searchParams.get('offset'))
+   if(limit>200)return Promise.reject(new ApiError('Limit must be at most 200',422))
+   return Promise.resolve({customers:offset===0?Array.from({length:200},(_,n)=>({...issueFixture.customer,id:`c${n}`,company:`Customer ${n}`})):[{...issueFixture.customer,id:'last',company:'Last customer'}]})
+  }
+  return original(path,opts)
+ })
+ mount('/issues/new');expect(await screen.findByRole('option',{name:'Last customer'})).toBeInTheDocument()
+})

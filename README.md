@@ -89,3 +89,22 @@ npm run test:e2e
 
 The local cache is not the authoritative backup. Back up the central PostgreSQL database as described in `SECURITY_AND_BACKUPS.md`.
 
+
+## Customer Issues
+
+The browser app includes **Customer Issues** for manually tracking complaints,
+complications, calls, emails, conversations, follow-ups and resolutions across
+stores. Each case belongs to a customer and store, can link to a matching print
+order, and keeps an append-only history with employee attribution. Case statuses
+include Open, In Progress, Waiting on Customer, Waiting on Third Party and Resolved.
+Resolved cases can be reopened with a reason.
+
+Employees can read company-wide cases and change cases in their active store.
+Administrators can change cases across stores. Follow-up dates use the case store's
+timezone; a date earlier than today is overdue while the case remains unresolved.
+Communication occurrence time is separate from the server's recording time.
+
+Case records require an online connection and are not saved to the browser's
+persistent offline cache. Existing offline work-order viewing remains available.
+Logging an email does not send an email. Resolution notes do not process a refund
+or alter order totals.
