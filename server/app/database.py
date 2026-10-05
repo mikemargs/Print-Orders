@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -9,8 +9,10 @@ from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -171,3 +173,50 @@ class ProcessedOperation(Base):
     company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
     result: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CustomerIssue(Base):
+    __tablename__ = 'customer_issues'
+    __table_args__ = (UniqueConstraint('company_id', 'reference', name='uq_issue_company_reference'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey('companies.id'), index=True)
+    customer_id: Mapped[str] = mapped_column(ForeignKey('customers.id'), index=True)
+    location_id: Mapped[str] = mapped_column(ForeignKey('locations.id'), index=True)
+    reference: Mapped[str] = mapped_column(String(50))
+    title: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(String(40), default='Customer Service')
+    priority: Mapped[str] = mapped_column(String(20), default='Normal')
+    status: Mapped[str] = mapped_column(String(40), default='Open', index=True)
+    assigned_employee_id: Mapped[str | None] = mapped_column(ForeignKey('employees.id'), nullable=True, index=True)
+    work_order_id: Mapped[str | None] = mapped_column(ForeignKey('work_orders.id'), nullable=True)
+    next_action: Mapped[str] = mapped_column(Text, default='')
+    follow_up_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    resolution_summary: Mapped[str] = mapped_column(Text, default='')
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_by: Mapped[str] = mapped_column(String(36))
+    updated_by: Mapped[str] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class IssueActivity(Base):
+    __tablename__ = 'issue_activities'
+    __table_args__ = (UniqueConstraint('company_id', 'operation_id', name='uq_issue_activity_operation'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey('companies.id'), index=True)
+    issue_id: Mapped[str] = mapped_column(ForeignKey('customer_issues.id'), index=True)
+    activity_type: Mapped[str] = mapped_column(String(30))
+    channel: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    author_employee_id: Mapped[str] = mapped_column(ForeignKey('employees.id'))
+    author_name: Mapped[str] = mapped_column(String(120))
+    summary: Mapped[str] = mapped_column(Text)
+    changed_fields: Mapped[dict] = mapped_column(JSON, default=dict)
+    operation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    request_payload: Mapped[dict] = mapped_column(JSON, default=dict)
+
+Index("ix_issue_company_store_status", CustomerIssue.company_id, CustomerIssue.location_id, CustomerIssue.status)
+Index("ix_issue_activity_timeline", IssueActivity.issue_id, IssueActivity.occurred_at, IssueActivity.recorded_at)

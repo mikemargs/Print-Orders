@@ -1,3 +1,4 @@
+import { IssueSummary } from '../issues/IssueSummary'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../../api/http'
@@ -67,6 +68,8 @@ export function DashboardPage() {
       <div className="metric"><span>Ready for pickup</span><strong>{ready.length}</strong></div>
       <div className="metric"><span>Overdue</span><strong>{overdue.length}</strong></div>
     </div>
+
+    <IssueSummary compact/>
 
     <div className="store-summary-grid" aria-label="Pending orders by store">
       {storeCounts.map(store => <div key={store.id} className="store-summary-card">

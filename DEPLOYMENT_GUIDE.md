@@ -111,3 +111,51 @@ Before a production release, require these checks to pass:
 - desktop disconnect/reconnect synchronization test
 - database restore exercise
 - representative large artwork upload/resume test
+
+## Deploying Customer Issues
+
+This feature uses the existing web/API service and company database; no additional
+hosting service or email provider is required.
+
+1. Back up the production database using the existing backup procedure.
+2. Build the reviewed feature version and deploy through the existing Render/Docker
+   workflow. The container runs `python migrate_database.py` before starting Uvicorn.
+   For a manual deployment, run that command from `server/` with production
+   `DATABASE_URL` before serving the new application.
+3. Verify Alembic revision `0007_customer_issues` is installed. It adds
+   `customer_issues` and `issue_activities` plus indexes; existing customer and order
+   data are preserved.
+4. Verify `/api/health`, sign in, and open **Customer Issues**. Test with a fictional
+   customer: create a case, log a call, change the follow-up, resolve and reopen.
+   Verify an employee can read another store's case but must switch to that store
+   to change it; administrators have cross-store write access.
+5. Confirm the Main Dashboard still shows pending print orders and now includes a
+   customer-issue summary. Existing assets have hashed filenames and the app shell
+   and service worker use no-store/revalidation headers; refresh installed PWAs
+   after the new service worker activates.
+
+For rollback, build the prior application code **with the deployed migration
+history retained**. Do not directly redeploy an unmodified prior image: its startup
+runs Alembic and cannot recognize database revision `0007_customer_issues`.
+
+1. Prepare a checkout of the previous application revision.
+2. Copy the complete `server/alembic/versions/` directory from the deployed feature
+   revision into that checkout, retaining every migration through
+   `0007_customer_issues`. The new migration is self-contained and does not import
+   the new application's models.
+3. Build a rollback image from the previous application source and retained
+   migrations. Rehearse its `python migrate_database.py` startup step against a
+   restored backup/test database already at revision `0007_customer_issues`.
+4. Deploy that rollback build, then verify health and the prior application's
+   customer and order workflows. Keep the complaint/history tables intact so the
+   feature can be restored later.
+
+This sequence was rehearsed locally: the unmodified prior migration startup failed
+on revision 0007; retaining the deployed migrations let that prior startup step
+succeed while preserving a seeded customer, complaint and communication history.
+Do not downgrade/drop the new tables after real cases have been recorded: doing so
+discards complaint history. The older application code ignores the new tables.
+
+Manual communication logging only is included. There are no automatic reminders,
+email sending, complaint attachments or customer-facing portal. Customer issues
+need an online connection; complaint histories are not cached persistently offline.
