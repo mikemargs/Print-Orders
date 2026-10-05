@@ -83,7 +83,7 @@ describe('Main Dashboard', () => {
     expect(screen.getByText('WO-5345-1')).toBeInTheDocument()
     expect(screen.queryByText('WO-5345-2')).not.toBeInTheDocument()
     expect(screen.getAllByText('Sayville #5127').length).toBeGreaterThan(0)
-    expect(screen.getByText('Selden #5345')).toBeInTheDocument()
+    expect(screen.getAllByText('Selden #5345').length).toBeGreaterThan(0)
     expect(screen.getByText('2 total')).toBeInTheDocument()
   })
 })
