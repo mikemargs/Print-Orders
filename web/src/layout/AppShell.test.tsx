@@ -50,6 +50,8 @@ describe('AppShell store switcher', () => {
       </QueryClientProvider>,
     )
 
+    expect(screen.queryByText('Store Dashboard')).not.toBeInTheDocument()
+    expect(screen.getByText('Main Dashboard')).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Active store'), { target: { value: 'l2' } })
     await waitFor(() => expect(switchLocation).toHaveBeenCalledWith('l2'))
   })
