@@ -12,6 +12,14 @@ const STORE_ADDRESSES: Record<string, string> = {
   '3167': '5507 Nesconset Hwy #10, Mount Sinai, NY 11766',
 }
 
+export function storeAddressFor(storeNumber?: string) {
+  return storeNumber ? STORE_ADDRESSES[storeNumber] ?? '' : ''
+}
+
+export function calculateTaxAmount(subtotal: number, discount: number, taxRate: number) {
+  return Math.max(subtotal - discount, 0) * (taxRate / 100)
+}
+
 function formatPercent(value: number) {
   return value.toFixed(3).replace(/\.?0+$/, '')
 }
@@ -23,9 +31,8 @@ export function WorkTicket(){
   if(order.error)return <p className="error">{order.error instanceof Error?order.error.message:'Unable to load work order'}</p>
   if(!order.data)return <p>Loading…</p>
   const o=order.data,c=customer.data;const location=session?.locations?.find(x=>x.id===o.location_id)||session?.location
-  const storeAddress=location?.store_number?STORE_ADDRESSES[location.store_number]:''
-  const taxable=Math.max(Number(o.subtotal)-Number(o.discount),0)
-  const taxAmount=taxable*(Number(o.tax_rate)/100)
+  const storeAddress=storeAddressFor(location?.store_number)
+  const taxAmount=calculateTaxAmount(Number(o.subtotal),Number(o.discount),Number(o.tax_rate))
   return <article className="work-ticket">
     <div className="print-actions"><button onClick={()=>window.print()}>Print</button></div>
     {!online&&<div className="notice">Printing cached offline copy.</div>}
