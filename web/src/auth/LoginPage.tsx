@@ -37,7 +37,7 @@ export function LoginPage() {
 
   return <main className="login-page">
     <section className="login-card">
-      <div className="brand-mark">POM</div><h1>Print Order Manager</h1><p className="muted">Multi-store production workflow</p>
+      <div className="brand-mark">SOH</div><h1>Store Operations Hub</h1><p className="muted">Multi-store operations, customers, print, and follow-ups</p>
       {!stage ? <form onSubmit={companyLogin} className="form-stack">
         <label>Company code<input autoFocus value={companyCode} onChange={e => setCompanyCode(e.target.value)} required /></label>
         <label>Company password<input type="password" value={password} onChange={e => setPassword(e.target.value)} required /></label>
