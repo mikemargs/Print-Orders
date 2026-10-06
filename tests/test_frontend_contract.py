@@ -10,13 +10,16 @@ class FrontendOfflineSessionContractTests(unittest.TestCase):
         self.assertIn("JSON.stringify(session)", source)
         self.assertNotIn("const { csrf_token: _csrf, ...safe } = session", source)
 
-    def test_main_and_store_dashboards_keep_distinct_scopes(self):
+    def test_main_dashboard_is_company_wide_and_store_switch_stays_available(self):
         main = (ROOT / 'web/src/features/dashboard/DashboardPage.tsx').read_text(encoding='utf-8')
-        store = (ROOT / 'web/src/features/dashboard/StoreDashboardPage.tsx').read_text(encoding='utf-8')
+        shell = (ROOT / 'web/src/layout/AppShell.tsx').read_text(encoding='utf-8')
+        app = (ROOT / 'web/src/App.tsx').read_text(encoding='utf-8')
         self.assertIn("/api/orders?limit=${PAGE_SIZE}&offset=${offset}", main)
         self.assertNotIn("location_id=${encodeURIComponent(locationId)}", main)
-        self.assertIn("location_id=${encodeURIComponent(locationId)}", store)
-        self.assertIn("order.location_id === locationId", store)
+        self.assertIn("switchLocation(locationId)", shell)
+        self.assertIn("navigate('/', { replace: true })", shell)
+        self.assertNotIn("Store Dashboard", shell)
+        self.assertNotIn('path="store-dashboard"', app)
 
     def test_non_admin_order_editor_only_offers_selected_store(self):
         source = (ROOT / 'web/src/features/orders/OrderEditor.tsx').read_text(encoding='utf-8')
