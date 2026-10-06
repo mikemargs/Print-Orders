@@ -5,6 +5,7 @@ import tempfile
 import unittest
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMP = tempfile.TemporaryDirectory()
@@ -451,6 +452,74 @@ class ServerIntegrationTests(unittest.TestCase):
             self.assertEqual(updated.status_code,200,updated.text); self.assertEqual(updated.json()["version"],2)
         finally:
             client.__exit__(None,None,None)
+
+    def test_web_new_order_queues_internal_store_notification(self):
+        client, csrf = self._login_web_admin()
+        try:
+            customer = client.post(
+                "/api/customers",
+                headers={"X-CSRF-Token": csrf},
+                json={"company": "Notification Customer"},
+            ).json()
+            with patch("app.routers.orders.queue_work_order_created") as notify:
+                response = client.post(
+                    "/api/orders",
+                    headers={"X-CSRF-Token": csrf},
+                    json={
+                        "customer_id": customer["id"],
+                        "location_id": self.location["id"],
+                        "status": "New",
+                        "priority": "Normal",
+                        "received_date": "2026-10-06",
+                        "description": "Notification test",
+                        "items": [{"item_name": "Poster", "quantity": 1, "unit_price": 10}],
+                    },
+                )
+            self.assertEqual(response.status_code, 201, response.text)
+            notify.assert_called_once()
+            self.assertEqual(notify.call_args.args[2].id, response.json()["id"])
+        finally:
+            client.__exit__(None, None, None)
+
+    def test_synced_new_order_queues_notification_once_on_replay(self):
+        client, csrf = self._login_web_admin()
+        try:
+            customer = client.post(
+                "/api/customers",
+                headers={"X-CSRF-Token": csrf},
+                json={"company": "Synced Notification Customer"},
+            ).json()
+        finally:
+            client.__exit__(None, None, None)
+        operation_id = str(uuid.uuid4())
+        order_id = str(uuid.uuid4())
+        body = {
+            "operations": [
+                {
+                    "operation_id": operation_id,
+                    "entity_type": "order",
+                    "action": "upsert",
+                    "entity_id": order_id,
+                    "base_version": 0,
+                    "payload": {
+                        "customer_id": customer["id"],
+                        "location_id": self.location["id"],
+                        "status": "New",
+                        "priority": "Normal",
+                        "received_date": "2026-10-06",
+                        "description": "Synced notification test",
+                    },
+                }
+            ]
+        }
+        with patch("app.main.queue_work_order_created") as notify:
+            first = self.client.post("/api/sync/push", headers=self.headers, json=body)
+            second = self.client.post("/api/sync/push", headers=self.headers, json=body)
+        self.assertEqual(first.status_code, 200, first.text)
+        self.assertEqual(first.json()["results"][0]["status"], "applied")
+        self.assertEqual(second.status_code, 200, second.text)
+        notify.assert_called_once()
+        self.assertEqual(notify.call_args.args[2].id, order_id)
 
     def test_web_reports_and_employee_admin_require_csrf_for_writes(self):
         client, csrf = self._login_web_admin()
