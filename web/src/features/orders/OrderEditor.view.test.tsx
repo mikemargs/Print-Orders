@@ -97,6 +97,7 @@ describe('OrderEditor saved-order view mode', () => {
     vi.mocked(apiFetch).mockImplementation(async (url: string, options?: RequestInit) => {
       if (url === '/api/customers?limit=200') return { customers: [customer] }
       if (url === '/api/orders/o1' && !options?.method) return order
+      if (url === '/api/orders/o1/files') return { files: [] }
       if (url === '/api/orders/o1' && options?.method === 'PATCH') {
         const payload = JSON.parse(String(options.body))
         return { ...order, ...payload, version: 2 }
