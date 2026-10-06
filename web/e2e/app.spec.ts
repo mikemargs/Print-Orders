@@ -84,7 +84,7 @@ test('operations hub supports shared task follow-ups', async ({ page }) => {
   await page.getByRole('button', { name: 'Save task' }).click()
 
   await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]{36}$/)
-  await expect(page.getByRole('status')).toHaveText('Task saved.')
+  await expect(page.getByLabel('Task title')).toHaveValue(title)
   await page.getByRole('link', { name: 'Back to tasks' }).click()
   await expect(page.getByText(title)).toBeVisible()
 })
