@@ -38,7 +38,7 @@ export function AppShell() {
   return <div className="app-shell">
     <header className="topbar">
       <div className="topbar-brand">
-        <strong>Print Order Manager</strong>
+        <strong>Store Operations Hub</strong>
         {allowedLocations.length > 1
           ? <select
               className="store-switch"
@@ -66,6 +66,7 @@ export function AppShell() {
       <NavLink to="/orders">Work Orders</NavLink>
       <NavLink to="/customers">Customers</NavLink>
       <NavLink to="/issues">Customer Issues</NavLink>
+      <NavLink to="/tasks">Tasks &amp; Follow-Ups</NavLink>
       {(role === 'supervisor' || role === 'admin') && <NavLink to="/reports">Reports</NavLink>}
       {role === 'admin' && <NavLink to="/employees">Employees</NavLink>}
     </aside>
