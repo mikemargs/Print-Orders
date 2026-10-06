@@ -81,7 +81,7 @@ def _html_body(lines: list[str], link: str) -> str:
         paragraphs += (
             '<p><a href="'
             + html.escape(link, quote=True)
-            + '">Open in Print Order Manager</a></p>'
+            + '">Open in Store Operations Hub</a></p>'
         )
     return (
         '<div style="font-family:Arial,sans-serif;line-height:1.45;color:#17324d">'
