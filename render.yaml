@@ -38,3 +38,17 @@ services:
         sync: false
       - key: BOOTSTRAP_ADMIN_PIN
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: NOTIFICATION_EMAIL_FROM
+        sync: false
+      - key: NOTIFY_EMAIL_SAYVILLE
+        sync: false
+      - key: NOTIFY_EMAIL_SELDEN
+        sync: false
+      - key: NOTIFY_EMAIL_MT_SINAI
+        sync: false
+      - key: NOTIFY_EMAIL_ADDITIONAL
+        sync: false
+      - key: PUBLIC_APP_URL
+        sync: false
