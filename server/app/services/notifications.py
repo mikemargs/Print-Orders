@@ -3,8 +3,8 @@ from __future__ import annotations
 import html
 import logging
 import os
+from collections.abc import Iterable
 from decimal import Decimal
-from typing import Iterable
 
 import httpx
 from fastapi import BackgroundTasks
