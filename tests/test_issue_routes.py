@@ -99,6 +99,15 @@ class IssueRouteTests(unittest.TestCase):
         self.assertEqual(r.status_code, 201, r.text)
         return r.json()
 
+    @patch("app.routers.issues.queue_customer_issue_created")
+    def test_new_case_queues_internal_store_notification(self, notify):
+        row = self.create()
+        self.assertTrue(row["id"])
+        notify.assert_called_once()
+        args = notify.call_args.args
+        self.assertEqual(args[2].id, row["id"])
+        self.assertEqual(args[3], "e")
+
     def test_auth_csrf_and_validation(self):
         self.assertEqual(self.client.post("/api/issues", json=self.body).status_code, 403)
         self.assertEqual(

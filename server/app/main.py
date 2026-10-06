@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Any, Literal
 
 import jwt
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
@@ -45,6 +45,7 @@ from .security import (
 from .services.common import Conflict as ServiceConflict
 from .services.common import Forbidden as ServiceForbidden
 from .services.common import Invalid as ServiceInvalid
+from .services.notifications import queue_work_order_created
 from .services.records import (
     create_or_update_customer,
     create_or_update_order,
@@ -362,7 +363,8 @@ def bootstrap(claims: dict = Depends(token_claims), db: Session = Depends(get_db
 @app.post("/api/sync/push")
 def sync_push(
     body: SyncPush,
-    claims: dict = Depends(employee_claims),
+    background_tasks: BackgroundTasks,
+    claims: AuthContext = Depends(employee_claims),
     db: Session = Depends(get_db),
 ):
     results = []
@@ -391,6 +393,18 @@ def sync_push(
             )
         )
         db.commit()
+        if (
+            operation.entity_type == "order"
+            and operation.action == "upsert"
+            and operation.base_version == 0
+            and result.get("status") == "applied"
+            and result.get("version") == 1
+        ):
+            created_order = db.get(WorkOrder, operation.entity_id)
+            if created_order is not None:
+                queue_work_order_created(
+                    background_tasks, db, created_order, claims.employee_id
+                )
         results.append(result)
     return {"results": results}
 

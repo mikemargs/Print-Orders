@@ -28,6 +28,7 @@ The desktop program keeps a local cache, so staff can continue creating customer
 - Read-only browser outage mode using a bounded IndexedDB cache
 - Private resumable artwork uploads to Supabase Storage
 - Secure HttpOnly browser sessions with CSRF protection
+- Store-routed internal email notifications for newly created work orders and Customer Issues
 
 ## Project layout
 
@@ -106,5 +107,6 @@ Communication occurrence time is separate from the server's recording time.
 
 Case records require an online connection and are not saved to the browser's
 persistent offline cache. Existing offline work-order viewing remains available.
-Logging an email does not send an email. Resolution notes do not process a refund
-or alter order totals.
+Logging an email does not send an email to the customer. Separate internal staff
+notifications can be sent through Resend when a new Customer Issue is created.
+Resolution notes do not process a refund or alter order totals.

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from ..database import ArtworkFile, Customer, WorkOrder
 from ..schemas.api import OrderCreate, OrderUpdate, VersionBody
 from ..services.common import Conflict, Forbidden, Invalid
+from ..services.notifications import queue_work_order_created
 from ..services.records import create_or_update_order, delete_order, serialize_record
 from ..web_sessions import get_web_db, web_auth_context, web_mutation_context
 
@@ -54,9 +55,13 @@ def list_orders(search: str='', location_id: str='', status: str='', priority: s
     return {'orders':serialized}
 
 @router.post('',status_code=201)
-def create_order(body: OrderCreate, auth=Depends(web_mutation_context), db: Session=Depends(get_web_db)):
+def create_order(body: OrderCreate, background_tasks: BackgroundTasks, auth=Depends(web_mutation_context), db: Session=Depends(get_web_db)):
     try:
-        row=create_or_update_order(db,auth,str(uuid.uuid4()),0,body.model_dump()); db.commit(); return serialize_record(row)
+        row=create_or_update_order(db,auth,str(uuid.uuid4()),0,body.model_dump())
+        db.commit()
+        payload=serialize_record(row)
+        queue_work_order_created(background_tasks,db,row,auth.employee_id)
+        return payload
     except Exception as exc:
         db.rollback(); return service_error(exc)
 
