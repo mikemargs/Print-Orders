@@ -28,7 +28,7 @@ class MigrationTests(unittest.TestCase):
             with closing(sqlite3.connect(db_path)) as conn:
                 tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                 work_order_cols = {row[1] for row in conn.execute("PRAGMA table_info(work_orders)")}
-            self.assertTrue({'companies','locations','employees','customers','work_orders','sync_events','processed_operations','artwork_files'}.issubset(tables), tables)
+            self.assertTrue({'companies','locations','employees','customers','work_orders','sync_events','processed_operations','artwork_files','customer_issues','issue_activities','operations_tasks'}.issubset(tables), tables)
             self.assertTrue({"discount_mode", "discount_percent"}.issubset(work_order_cols))
 
     def test_bootstrap_upgrades_unversioned_existing_database(self):
