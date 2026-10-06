@@ -1,6 +1,6 @@
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from ..database import Customer, CustomerIssue, Employee, IssueActivity, Location, utcnow
 from ..schemas.issues import CommunicationCreate, IssueCreate, IssueUpdate
 from ..services.common import Conflict, Forbidden, Invalid, NotFound
+from ..services.notifications import queue_customer_issue_created
 from ..services.issues import (
     append_communication,
     create_issue,
@@ -185,12 +186,17 @@ def issue_options(auth=Depends(web_auth_context), db: Session = Depends(get_web_
 
 @router.post("", status_code=201)
 def new_issue(
-    body: IssueCreate, auth=Depends(web_mutation_context), db: Session = Depends(get_web_db)
+    body: IssueCreate,
+    background_tasks: BackgroundTasks,
+    auth=Depends(web_mutation_context),
+    db: Session = Depends(get_web_db),
 ):
     try:
         row = create_issue(db, auth, body.model_dump())
         db.commit()
-        return serialize_issue(db, row)
+        payload = serialize_issue(db, row)
+        queue_customer_issue_created(background_tasks, db, row, auth.employee_id)
+        return payload
     except Exception as exc:
         db.rollback()
         return error_response(exc)
