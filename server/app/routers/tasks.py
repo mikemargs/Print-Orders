@@ -8,7 +8,13 @@ from sqlalchemy.orm import Session
 from ..database import Employee, Location, OperationsTask, utcnow
 from ..schemas.tasks import TaskCreate, TaskUpdate
 from ..services.common import Conflict, Forbidden, Invalid, NotFound
-from ..services.tasks import CLOSED_STATUSES, create_task, get_task, serialize_task, update_task
+from ..services.tasks import (
+    CLOSED_STATUSES,
+    create_task,
+    get_task,
+    serialize_task,
+    update_task,
+)
 from ..web_sessions import get_web_db, web_auth_context, web_mutation_context
 
 router = APIRouter(prefix="/api/tasks", tags=["operations-tasks"])
@@ -40,7 +46,7 @@ def task_query(auth, options):
         if options[name]:
             q = q.where(getattr(OperationsTask, name) == options[name])
     if options["open_only"]:
-        q = q.where(OperationsTask.status.not_in(CLOSED_STATUSES))
+        q = q.where(OperationsTask.status.notin_(CLOSED_STATUSES))
     if options["search"].strip():
         needle = (
             "%"
@@ -98,7 +104,7 @@ def summary(
     auth=Depends(web_auth_context),
     db: Session = Depends(get_web_db),
 ):
-    q = task_query(auth, options).where(OperationsTask.status.not_in(CLOSED_STATUSES))
+    q = task_query(auth, options).where(OperationsTask.status.notin_(CLOSED_STATUSES))
     totals = {"open": 0, "overdue": 0, "due_today": 0, "assigned_to_me": 0}
     rows = db.execute(
         q.with_only_columns(
