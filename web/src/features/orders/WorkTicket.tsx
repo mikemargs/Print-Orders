@@ -49,7 +49,6 @@ export function WorkTicket(){
         <div>Priority: {o.priority}</div>
       </div>
     </header>
-    <div className="ticket-location">{location?.name||'The UPS Store'}{location?.store_number?` · Store #${location.store_number}`:''}</div>
     <div className="ticket-grid">
       <section><h2 className="ticket-section-title">Customer</h2><p><strong>{c?.company||`${c?.first_name??''} ${c?.last_name??''}`.trim()||'Customer'}</strong><br/>{c?.phone}<br/>{c?.email}</p></section>
       <section><h2 className="ticket-section-title">Production</h2><p>Received: {o.received_date}<br/>Due: {o.due_date||'—'}<br/>Assigned: {o.assigned_to||'—'}</p></section>
