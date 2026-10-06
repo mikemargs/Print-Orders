@@ -220,3 +220,41 @@ class IssueActivity(Base):
 
 Index("ix_issue_company_store_status", CustomerIssue.company_id, CustomerIssue.location_id, CustomerIssue.status)
 Index("ix_issue_activity_timeline", IssueActivity.issue_id, IssueActivity.occurred_at, IssueActivity.recorded_at)
+
+
+class OperationsTask(Base):
+    __tablename__ = "operations_tasks"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    location_id: Mapped[str] = mapped_column(ForeignKey("locations.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(30), default="Open", index=True)
+    priority: Mapped[str] = mapped_column(String(20), default="Normal", index=True)
+    assigned_employee_id: Mapped[str | None] = mapped_column(
+        ForeignKey("employees.id"), nullable=True, index=True
+    )
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    customer_id: Mapped[str | None] = mapped_column(
+        ForeignKey("customers.id"), nullable=True, index=True
+    )
+    work_order_id: Mapped[str | None] = mapped_column(
+        ForeignKey("work_orders.id"), nullable=True, index=True
+    )
+    issue_id: Mapped[str | None] = mapped_column(
+        ForeignKey("customer_issues.id"), nullable=True, index=True
+    )
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_by: Mapped[str] = mapped_column(String(36))
+    updated_by: Mapped[str] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+Index(
+    "ix_operations_task_company_store_status",
+    OperationsTask.company_id,
+    OperationsTask.location_id,
+    OperationsTask.status,
+)
