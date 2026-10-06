@@ -1,4 +1,5 @@
 import { IssueSummary } from '../issues/IssueSummary'
+import { TaskSummary } from '../tasks/TaskSummary'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../../api/http'
@@ -68,6 +69,8 @@ export function DashboardPage() {
       <div className="metric"><span>Ready for pickup</span><strong>{ready.length}</strong></div>
       <div className="metric"><span>Overdue</span><strong>{overdue.length}</strong></div>
     </div>
+
+    <TaskSummary/>
 
     <IssueSummary compact/>
 
