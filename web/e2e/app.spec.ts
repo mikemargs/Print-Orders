@@ -69,3 +69,22 @@ test('offline sign-out stays signed out when connectivity returns', async ({ pag
   await expect(page.getByRole('heading', { name: 'Store Operations Hub' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toHaveCount(0)
 })
+
+
+test('operations hub supports shared task follow-ups', async ({ page }) => {
+  const unique = Date.now().toString()
+  const title = `Follow up with customer ${unique}`
+  await signIn(page)
+
+  await page.getByRole('link', { name: 'Tasks & Follow-Ups' }).click()
+  await page.getByRole('link', { name: 'New task' }).click()
+  await page.getByLabel('Task title').fill(title)
+  await page.getByLabel('Priority').selectOption('High')
+  await page.getByLabel('Due date').fill('2026-10-07')
+  await page.getByRole('button', { name: 'Save task' }).click()
+
+  await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]{36}$/)
+  await expect(page.getByRole('status')).toHaveText('Task saved.')
+  await page.getByRole('link', { name: 'Back to tasks' }).click()
+  await expect(page.getByText(title)).toBeVisible()
+})
