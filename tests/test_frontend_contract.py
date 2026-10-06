@@ -21,6 +21,16 @@ class FrontendOfflineSessionContractTests(unittest.TestCase):
         self.assertNotIn("Store Dashboard", shell)
         self.assertNotIn('path="store-dashboard"', app)
 
+    def test_operations_hub_exposes_tasks_without_removing_store_context(self):
+        shell = (ROOT / 'web/src/layout/AppShell.tsx').read_text(encoding='utf-8')
+        app = (ROOT / 'web/src/App.tsx').read_text(encoding='utf-8')
+        dashboard = (ROOT / 'web/src/features/dashboard/DashboardPage.tsx').read_text(encoding='utf-8')
+        self.assertIn("Store Operations Hub", shell)
+        self.assertIn('to="/tasks"', shell)
+        self.assertIn('path="tasks"', app)
+        self.assertIn("TaskSummary", dashboard)
+        self.assertIn("Active working store:", dashboard)
+
     def test_non_admin_order_editor_only_offers_selected_store(self):
         source = (ROOT / 'web/src/features/orders/OrderEditor.tsx').read_text(encoding='utf-8')
         self.assertIn("session?.employee.role==='admin'?session.locations", source)
