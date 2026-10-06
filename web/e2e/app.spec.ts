@@ -61,11 +61,11 @@ test('offline sign-out stays signed out when connectivity returns', async ({ pag
   await expect(page.getByText(/Offline read-only mode/)).toBeVisible()
 
   await page.getByRole('button', { name: 'Sign out' }).click()
-  await expect(page.getByRole('heading', { name: 'Print Order Manager' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Store Operations Hub' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toHaveCount(0)
 
   await context.setOffline(false)
   await page.reload()
-  await expect(page.getByRole('heading', { name: 'Print Order Manager' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Store Operations Hub' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toHaveCount(0)
 })
