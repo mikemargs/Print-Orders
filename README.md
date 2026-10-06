@@ -1,6 +1,6 @@
-# Print Order Manager — Multi-Store Edition
+# Store Operations Hub — Multi-Store Edition
 
-A multi-store print-order system with a Windows desktop client and an installable React browser/PWA, both backed by one central database. The included deployment is preconfigured for:
+A multi-store operations system with an installable React browser/PWA and an existing Windows print-order client, all backed by one central database. The browser hub combines print production, customer service, operational tasks and follow-ups while preserving the print client's offline workflow. The included deployment is preconfigured for:
 
 - Sayville — Store #5127
 - Selden — Store #5345
@@ -29,6 +29,8 @@ The desktop program keeps a local cache, so staff can continue creating customer
 - Private resumable artwork uploads to Supabase Storage
 - Secure HttpOnly browser sessions with CSRF protection
 - Store-routed internal email notifications for newly created work orders and Customer Issues
+- Shared Tasks & Follow-Ups with store ownership, employee assignment, priorities, due dates, and optional customer/order/issue links
+- Main Dashboard task attention metrics for open, overdue, due-today, and assigned-to-me work
 
 ## Project layout
 
@@ -110,3 +112,16 @@ persistent offline cache. Existing offline work-order viewing remains available.
 Logging an email does not send an email to the customer. Separate internal staff
 notifications can be sent through Resend when a new Customer Issue is created.
 Resolution notes do not process a refund or alter order totals.
+
+
+## Tasks & Follow-Ups
+
+The browser hub includes a shared operational task system for work that does not
+belong exclusively to print production or a customer complaint. Tasks belong to a
+store, can be assigned to an eligible employee, have priority/status/due-date
+tracking, and can optionally link back to a customer, print order, or Customer
+Issue.
+
+Employees can read company-wide tasks and update tasks in their active store.
+Administrators can update tasks across stores. Tasks are currently online-only;
+the existing offline cache remains focused on print work orders.
