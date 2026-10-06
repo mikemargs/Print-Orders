@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from ..database import Customer, CustomerIssue, Employee, IssueActivity, Location, utcnow
 from ..schemas.issues import CommunicationCreate, IssueCreate, IssueUpdate
 from ..services.common import Conflict, Forbidden, Invalid, NotFound
-from ..services.notifications import queue_customer_issue_created
 from ..services.issues import (
     append_communication,
     create_issue,
@@ -17,6 +16,7 @@ from ..services.issues import (
     serialize_issue,
     update_issue,
 )
+from ..services.notifications import queue_customer_issue_created
 from ..web_sessions import get_web_db, web_auth_context, web_mutation_context
 
 router = APIRouter(prefix="/api/issues", tags=["customer-issues"])
