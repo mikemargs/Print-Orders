@@ -8,9 +8,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Print Order Manager',
-        short_name: 'Print Orders',
-        description: 'Multi-store print order production management',
+        name: 'Store Operations Hub',
+        short_name: 'Store Hub',
+        description: 'Multi-store operations, print, customer service, and follow-up management',
         theme_color: '#084b72',
         background_color: '#f4f8fb',
         display: 'standalone',
