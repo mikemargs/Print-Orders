@@ -112,6 +112,38 @@ Before a production release, require these checks to pass:
 - database restore exercise
 - representative large artwork upload/resume test
 
+
+## 10. Internal creation email notifications
+
+New work orders and new Customer Issues can send an internal notification through
+Resend after the database record has been committed. Work orders created in the
+Windows desktop app are notified when their first successful sync creates the
+central record. Replayed sync operations do not queue another notification.
+
+Create a Resend API key and verify the domain/address used by the sender, then set
+these Render environment variables:
+
+- `RESEND_API_KEY` — server-only Resend API key.
+- `NOTIFICATION_EMAIL_FROM` — verified sender, for example
+  `Print Order Manager <notifications@yourdomain.com>`.
+- `NOTIFY_EMAIL_SAYVILLE` — recipients for Store #5127.
+- `NOTIFY_EMAIL_SELDEN` — recipients for Store #5345.
+- `NOTIFY_EMAIL_MT_SINAI` — recipients for Store #3167.
+- `NOTIFY_EMAIL_ADDITIONAL` — optional comma/semicolon-separated management
+  recipients added to every store notification.
+- `PUBLIC_APP_URL` — production HTTPS base URL used for direct links back to the
+  order or customer issue.
+
+Each store variable may contain multiple comma- or semicolon-separated addresses.
+The application sends one Resend API request to the store recipients plus any
+additional recipients and uses a deterministic idempotency key per creation event.
+
+Email delivery is intentionally isolated from record creation: if Resend is
+unconfigured or temporarily unavailable, the work order/customer issue remains
+successfully created and the delivery failure is logged by the server. These are
+internal staff notifications only; Customer Issue communication entries still do
+not send email to customers.
+
 ## Deploying Customer Issues
 
 This feature uses the existing web/API service and company database; no additional
