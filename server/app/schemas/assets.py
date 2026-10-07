@@ -41,6 +41,7 @@ class InventoryItemUpdate(InventoryItemCreate):
 
 
 class InventoryAdjustmentCreate(StrictBody):
+    version: int = Field(ge=1)
     mode: InventoryAdjustmentMode
     quantity: Decimal = Field(ge=0)
     reason: InventoryReason
@@ -76,10 +77,12 @@ class EquipmentAssetUpdate(EquipmentAssetCreate):
 
 
 class EquipmentIssueReport(StrictBody):
+    version: int = Field(ge=1)
     summary: str = Field(min_length=1, max_length=10000)
 
 
 class EquipmentServiceCreate(StrictBody):
+    version: int = Field(ge=1)
     event_date: date
     event_type: EquipmentEventType
     summary: str = Field(min_length=1, max_length=10000)
