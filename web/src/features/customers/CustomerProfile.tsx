@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { apiFetch } from '../../api/http'
 import { listIssues } from '../../api/issues'
+import { listMailboxes } from '../../api/mailboxes'
 import { listTasks } from '../../api/tasks'
 import type { Customer, WorkOrder } from '../../api/types'
 import { useSession } from '../../auth/SessionContext'
@@ -57,6 +58,12 @@ export function CustomerProfile() {
     queryFn: () => listTasks({ customer_id: id, open_only: false, limit: 250 }),
   })
 
+  const mailboxes = useQuery({
+    queryKey: ['customer-profile-mailboxes', id],
+    enabled: Boolean(id) && online,
+    queryFn: () => listMailboxes({ customer_id: id, limit: 250 }),
+  })
+
   if (customer.isLoading) return <section><h1>Customer</h1><p>Loading…</p></section>
   if (customer.error || !customer.data) return <section><h1>Customer</h1><p className="error">{customer.error instanceof Error ? customer.error.message : 'Customer not found'}</p><Link to="/customers">Back to customers</Link></section>
 
@@ -67,6 +74,8 @@ export function CustomerProfile() {
   const openIssues = allIssues.filter(issue => issue.status !== 'Resolved')
   const allTasks = tasks.data?.tasks ?? []
   const openTasks = allTasks.filter(task => !['Completed', 'Cancelled'].includes(task.status))
+  const allMailboxes = mailboxes.data?.mailboxes ?? []
+  const activeMailboxes = allMailboxes.filter(mailbox => mailbox.status !== 'Closed')
   const locationMap = new Map((session?.locations ?? []).map(location => [location.id, location]))
   const address = [row.address1, row.address2, row.city, row.state, row.postal_code].filter(Boolean).join(', ')
 
@@ -78,6 +87,7 @@ export function CustomerProfile() {
         {online && <Link className="button secondary" to={`/orders/new?customer_id=${row.id}`}>New Work Order</Link>}
         {online && <Link className="button secondary" to={`/issues/new?customer_id=${row.id}`}>New Customer Issue</Link>}
         {online && <Link className="button secondary" to={`/tasks?customer_id=${row.id}&new=1`}>New Task</Link>}
+        {online && <Link className="button secondary" to={`/mailboxes?customer_id=${row.id}&new=1`}>New Mailbox</Link>}
         <Link className="button secondary" to="/customers">Back</Link>
       </div>
     </div>
@@ -97,7 +107,18 @@ export function CustomerProfile() {
       <div className="metric"><span>Active print orders</span><strong>{activeOrders.length}</strong></div>
       <div className="metric"><span>Open customer issues</span><strong>{online ? openIssues.length : '—'}</strong></div>
       <div className="metric"><span>Open tasks</span><strong>{online ? openTasks.length : '—'}</strong></div>
+      <div className="metric"><span>Active mailboxes</span><strong>{online ? activeMailboxes.length : '—'}</strong></div>
       <div className="metric"><span>Print orders on file</span><strong>{allOrders.length}</strong></div>
+    </div>
+
+    <div className="panel">
+      <div className="section-heading"><h2>Mailboxes</h2><Link to={`/mailboxes?customer_id=${row.id}`}>View mailboxes</Link></div>
+      {!online ? <p className="muted">Mailbox records require an online connection.</p> : mailboxes.isLoading ? <p>Loading mailboxes…</p> : allMailboxes.length ? <div className="table-wrap"><table>
+        <thead><tr><th>Mailbox</th><th>Store</th><th>Status</th><th>Renewal</th><th>Compliance</th><th>Balance</th></tr></thead>
+        <tbody>{allMailboxes.map(mailbox => <tr key={mailbox.id} className={mailbox.days_overdue>0?'overdue-row':undefined}>
+          <td><strong>#{mailbox.mailbox_number}</strong></td><td>{mailbox.store?`${mailbox.store.name} #${mailbox.store.store_number}`:'—'}</td><td>{mailbox.status}</td><td>{mailbox.renewal_date||'No date'}{mailbox.days_overdue>0&&<small className="issue-meta">{mailbox.days_overdue} days overdue</small>}</td><td>{mailbox.compliance_complete?'Complete':mailbox.missing_compliance.join(', ')}</td><td>${Number(mailbox.balance_due).toFixed(2)}</td>
+        </tr>)}</tbody>
+      </table></div> : <p className="empty-state">No mailboxes are linked to this customer.</p>}
     </div>
 
     <div className="panel">

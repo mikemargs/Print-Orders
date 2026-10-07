@@ -34,3 +34,16 @@ export interface OperationalTask {
   customer?: { id: string; company: string; first_name: string; last_name: string } | null;
   order_number?: string | null; issue_reference?: string | null;
 }
+
+
+export interface MailboxRecord {
+  id: string; location_id: string; customer_id: string; mailbox_number: string;
+  status: 'Active' | 'Blocked' | 'Closing' | 'Closed'; renewal_date: string | null;
+  balance_due: number; primary_id_on_file: boolean; secondary_id_on_file: boolean;
+  form_1583_complete: boolean; msa_complete: boolean; phone_verified: boolean;
+  forwarding_status: 'None' | 'Scheduled' | 'Active'; forwarding_address: string; notes: string;
+  version: number; created_by: string; updated_by: string; created_at: string; updated_at: string;
+  closed_at: string | null; days_overdue: number; compliance_complete: boolean; missing_compliance: string[];
+  store: { id: string; name: string; store_number: string; timezone: string } | null;
+  customer: Pick<Customer,'id'|'company'|'first_name'|'last_name'|'phone'|'email'> | null;
+}
