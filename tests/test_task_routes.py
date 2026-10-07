@@ -119,6 +119,23 @@ class TaskRouteTests(unittest.TestCase):
         self.assertIsNotNone(updated.json()["completed_at"])
         self.assertEqual(self.client.get("/api/tasks").json()["total"], 0)
 
+    def test_customer_filter_only_returns_linked_tasks(self):
+        first = self.client.post(
+            "/api/tasks",
+            json={"location_id": "l1", "title": "Customer task", "customer_id": "c"},
+            headers=self.headers,
+        )
+        self.assertEqual(first.status_code, 201, first.text)
+        second = self.client.post(
+            "/api/tasks",
+            json={"location_id": "l1", "title": "General task"},
+            headers=self.headers,
+        )
+        self.assertEqual(second.status_code, 201, second.text)
+        filtered = self.client.get("/api/tasks?customer_id=c&open_only=false").json()
+        self.assertEqual(filtered["total"], 1)
+        self.assertEqual(filtered["tasks"][0]["title"], "Customer task")
+
     def test_store_scope_and_csrf(self):
         body = {"location_id": "l2", "title": "Other store task"}
         self.assertEqual(self.client.post("/api/tasks", json=body).status_code, 403)
