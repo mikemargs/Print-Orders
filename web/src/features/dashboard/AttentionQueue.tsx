@@ -112,6 +112,6 @@ export function AttentionQueue({orders}:{orders:WorkOrder[]}) {
       </tr>)}</tbody>
     </table></div>}
     {items.length>visible.length&&<p className="muted">Showing the 12 most urgent items.</p>}
-    {!online&&<p className="muted">Offline mode shows cached print-order attention only; tasks and customer issues require a connection.</p>}
+    {!online&&<p className="muted">Offline mode shows cached print-order attention only; mailboxes, tasks, and customer issues require a connection.</p>}
   </div>
 }
