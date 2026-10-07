@@ -19,7 +19,7 @@ export function CatalogProductPicker({
 }){
   const selected=products.find(product=>product.id===value)??null
   const [text,setText]=useState(selected?catalogDisplayLabel(selected):'')
-  useEffect(()=>{setText(selected?catalogDisplayLabel(selected):'')},[selected?.id])
+  useEffect(()=>{setText(selected?catalogDisplayLabel(selected):'')},[selected])
   const listId=idPrefix+'-list'
   const byLabel=useMemo(()=>{
     const map=new Map<string,CatalogProduct>()
