@@ -1,3 +1,4 @@
+import { AttentionQueue } from './AttentionQueue'
 import { TaskSummary } from '../tasks/TaskSummary'
 import { IssueSummary } from '../issues/IssueSummary'
 import { useQuery } from '@tanstack/react-query'
@@ -70,6 +71,7 @@ export function DashboardPage() {
       <div className="metric"><span>Overdue</span><strong>{overdue.length}</strong></div>
     </div>
 
+    <AttentionQueue orders={pending}/>
     <TaskSummary/>
     <IssueSummary compact/>
 
