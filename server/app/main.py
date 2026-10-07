@@ -28,7 +28,9 @@ from .database import (
 )
 from .hybrid_auth import hybrid_admin, hybrid_admin_mutation, hybrid_supervisor
 from .routers.customers import router as customers_router
+from .routers.equipment import router as equipment_router
 from .routers.files import router as files_router
+from .routers.inventory import router as inventory_router
 from .routers.issues import router as issues_router
 from .routers.mailboxes import router as mailboxes_router
 from .routers.operations import router as operations_router
@@ -268,6 +270,8 @@ async def add_browser_security_headers(request: Request, call_next):
 
 app.include_router(web_auth_router)
 app.include_router(customers_router)
+app.include_router(equipment_router)
+app.include_router(inventory_router)
 app.include_router(orders_router)
 app.include_router(issues_router)
 app.include_router(operations_router)
