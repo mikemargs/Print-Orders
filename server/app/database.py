@@ -289,6 +289,51 @@ class ShippingCase(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+
+
+class ChecklistTemplate(Base):
+    __tablename__ = "checklist_templates"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    location_id: Mapped[str] = mapped_column(ForeignKey("locations.id"), index=True)
+    name: Mapped[str] = mapped_column(String(180))
+    checklist_type: Mapped[str] = mapped_column(String(30), default="Daily")
+    cadence: Mapped[str] = mapped_column(String(30), default="Daily")
+    weekday: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    items: Mapped[list] = mapped_column(JSON, default=list)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_by: Mapped[str] = mapped_column(String(36))
+    updated_by: Mapped[str] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ChecklistRun(Base):
+    __tablename__ = "checklist_runs"
+    __table_args__ = (
+        UniqueConstraint(
+            "company_id",
+            "location_id",
+            "template_id",
+            "business_date",
+            name="uq_checklist_run_template_date",
+        ),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    location_id: Mapped[str] = mapped_column(ForeignKey("locations.id"), index=True)
+    template_id: Mapped[str] = mapped_column(ForeignKey("checklist_templates.id"), index=True)
+    business_date: Mapped[date] = mapped_column(Date, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="Open", index=True)
+    item_states: Mapped[list] = mapped_column(JSON, default=list)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_by: Mapped[str] = mapped_column(String(36))
+    updated_by: Mapped[str] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
 class IssueActivity(Base):
     __tablename__ = 'issue_activities'
     __table_args__ = (UniqueConstraint('company_id', 'operation_id', name='uq_issue_activity_operation'),)
@@ -314,3 +359,6 @@ Index("ix_tasks_company_location_status", OperationalTask.company_id, Operationa
 Index("ix_mailboxes_company_store_status", Mailbox.company_id, Mailbox.location_id, Mailbox.status)
 
 Index("ix_shipping_company_store_status", ShippingCase.company_id, ShippingCase.location_id, ShippingCase.status)
+
+Index("ix_checklist_template_company_store_active", ChecklistTemplate.company_id, ChecklistTemplate.location_id, ChecklistTemplate.active)
+Index("ix_checklist_run_company_store_date", ChecklistRun.company_id, ChecklistRun.location_id, ChecklistRun.business_date)
