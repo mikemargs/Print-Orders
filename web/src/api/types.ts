@@ -62,3 +62,18 @@ export interface ShippingCaseRecord {
   customer: Pick<Customer,'id'|'company'|'first_name'|'last_name'|'phone'|'email'> | null;
   issue_reference: string | null; issue_title: string | null;
 }
+
+
+export interface OperationsChecklistCompletion {
+  id: string; status: 'Completed' | 'Skipped'; notes: string; checklist_date: string;
+  completed_by: string; completed_by_name: string; completed_at: string; version: number;
+}
+
+export interface OperationsChecklistItem {
+  id: string; location_id: string; title: string; description: string;
+  category: 'Opening' | 'Closing' | 'Cleaning' | 'Equipment' | 'Deposit' | 'Supplies' | 'Safety' | 'Daily' | 'Other';
+  active_days: number[]; required: boolean; active: boolean; sort_order: number; version: number;
+  created_by: string; updated_by: string; created_at: string; updated_at: string;
+  store: { id: string; name: string; store_number: string; timezone: string } | null;
+  completion: OperationsChecklistCompletion | null;
+}
