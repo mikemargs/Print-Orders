@@ -43,5 +43,15 @@ class FrontendOfflineSessionContractTests(unittest.TestCase):
         self.assertIn("setPendingLogoutCsrf(csrf)", source)
 
 
+    def test_inventory_equipment_workspace_is_routed_and_attention_aware(self):
+        app = (ROOT / 'web/src/App.tsx').read_text(encoding='utf-8')
+        shell = (ROOT / 'web/src/layout/AppShell.tsx').read_text(encoding='utf-8')
+        attention = (ROOT / 'web/src/features/dashboard/AttentionQueue.tsx').read_text(encoding='utf-8')
+        self.assertIn('path="assets"', app)
+        self.assertIn('Inventory & Equipment', shell)
+        self.assertIn("dashboard-attention-inventory", attention)
+        self.assertIn("dashboard-attention-equipment", attention)
+
+
 if __name__ == '__main__':
     unittest.main()
