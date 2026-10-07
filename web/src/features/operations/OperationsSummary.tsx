@@ -15,7 +15,7 @@ export function OperationsSummary(){
         <div className="metric"><span>Pending</span><strong>{query.data.pending}</strong></div>
         <div className="metric"><span>Required pending</span><strong>{query.data.required_pending}</strong></div>
       </div>
-      <div className="store-summary-grid">{query.data.stores.map(store=><div className="store-summary-card" key={store.location_id}><span>{store.store}</span><strong>{store.completed}/{store.expected}</strong><small>{store.required_pending?store.required_pending+' required pending':'Required items complete'}</small></div>)}</div>
+      <div className="store-summary-grid">{(query.data.stores??[]).map(store=><div className="store-summary-card" key={store.location_id}><span>{store.store}</span><strong>{store.completed}/{store.expected}</strong><small>{store.required_pending?store.required_pending+' required pending':'Required items complete'}</small></div>)}</div>
     </>}
   </div>
 }
