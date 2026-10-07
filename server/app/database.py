@@ -224,6 +224,41 @@ class OperationalTask(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+
+
+class Mailbox(Base):
+    __tablename__ = "mailboxes"
+    __table_args__ = (
+        UniqueConstraint(
+            "company_id",
+            "location_id",
+            "mailbox_number",
+            name="uq_mailbox_company_store_number",
+        ),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    location_id: Mapped[str] = mapped_column(ForeignKey("locations.id"), index=True)
+    customer_id: Mapped[str] = mapped_column(ForeignKey("customers.id"), index=True)
+    mailbox_number: Mapped[str] = mapped_column(String(30))
+    status: Mapped[str] = mapped_column(String(30), default="Active", index=True)
+    renewal_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    balance_due: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    primary_id_on_file: Mapped[bool] = mapped_column(Boolean, default=False)
+    secondary_id_on_file: Mapped[bool] = mapped_column(Boolean, default=False)
+    form_1583_complete: Mapped[bool] = mapped_column(Boolean, default=False)
+    msa_complete: Mapped[bool] = mapped_column(Boolean, default=False)
+    phone_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    forwarding_status: Mapped[str] = mapped_column(String(30), default="None")
+    forwarding_address: Mapped[str] = mapped_column(Text, default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_by: Mapped[str] = mapped_column(String(36))
+    updated_by: Mapped[str] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
 class IssueActivity(Base):
     __tablename__ = 'issue_activities'
     __table_args__ = (UniqueConstraint('company_id', 'operation_id', name='uq_issue_activity_operation'),)
@@ -245,3 +280,5 @@ Index("ix_issue_company_store_status", CustomerIssue.company_id, CustomerIssue.l
 Index("ix_issue_activity_timeline", IssueActivity.issue_id, IssueActivity.occurred_at, IssueActivity.recorded_at)
 
 Index("ix_tasks_company_location_status", OperationalTask.company_id, OperationalTask.location_id, OperationalTask.status)
+
+Index("ix_mailboxes_company_store_status", Mailbox.company_id, Mailbox.location_id, Mailbox.status)
