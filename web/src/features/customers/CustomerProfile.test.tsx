@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { apiFetch } from '../../api/http'
 import { listIssues } from '../../api/issues'
+import { listMailboxes } from '../../api/mailboxes'
 import { listTasks } from '../../api/tasks'
 import { useSession } from '../../auth/SessionContext'
 import { useOnline } from '../../offline/OnlineState'
@@ -12,6 +13,7 @@ import { CustomerProfile } from './CustomerProfile'
 
 vi.mock('../../api/http', () => ({ apiFetch: vi.fn() }))
 vi.mock('../../api/issues', () => ({ listIssues: vi.fn() }))
+vi.mock('../../api/mailboxes', () => ({ listMailboxes: vi.fn() }))
 vi.mock('../../api/tasks', () => ({ listTasks: vi.fn() }))
 vi.mock('../../auth/SessionContext', () => ({ useSession: vi.fn() }))
 vi.mock('../../offline/OnlineState', () => ({ useOnline: vi.fn() }))
@@ -76,6 +78,17 @@ describe('CustomerProfile', () => {
       store: { id: 's1', name: 'Sayville', store_number: '5127', timezone: 'America/New_York' },
       assignee: { id: 'e1', name: 'Alex' }, customer: null, order_number: 'WO-1', issue_reference: null,
     }] })
+    vi.mocked(listMailboxes).mockResolvedValue({ total: 1, mailboxes: [{
+      id: 'm1', location_id: 's1', customer_id: 'c1', mailbox_number: '201', status: 'Active',
+      renewal_date: '2026-11-01', balance_due: 0, primary_id_on_file: true, secondary_id_on_file: true,
+      form_1583_complete: true, msa_complete: true, phone_verified: true, forwarding_status: 'None',
+      forwarding_address: '', notes: '', version: 1, created_by: 'e1', updated_by: 'e1',
+      created_at: '2026-10-07T12:00:00Z', updated_at: '2026-10-07T12:00:00Z', closed_at: null,
+      days_overdue: 0, compliance_complete: true, missing_compliance: [],
+      store: { id: 's1', name: 'Sayville', store_number: '5127', timezone: 'America/New_York' },
+      customer: { id: 'c1', company: 'Acme Landscaping', first_name: 'Sam', last_name: 'Lee', phone: '631-555-0100', email: 'sam@example.com' },
+    }] })
+
 
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -89,9 +102,11 @@ describe('CustomerProfile', () => {
     expect(screen.getByText('Yard signs')).toBeInTheDocument()
     expect(screen.getByText('Delivery concern')).toBeInTheDocument()
     expect(screen.getByText('Confirm artwork')).toBeInTheDocument()
+    expect(screen.getByText('#201')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Edit Customer' })).toHaveAttribute('href', '/customers/c1/edit')
     expect(screen.getByRole('link', { name: 'New Work Order' })).toHaveAttribute('href', '/orders/new?customer_id=c1')
     expect(screen.getByRole('link', { name: 'New Customer Issue' })).toHaveAttribute('href', '/issues/new?customer_id=c1')
     expect(screen.getByRole('link', { name: 'New Task' })).toHaveAttribute('href', '/tasks?customer_id=c1&new=1')
+    expect(screen.getByRole('link', { name: 'New Mailbox' })).toHaveAttribute('href', '/mailboxes?customer_id=c1&new=1')
   })
 })
