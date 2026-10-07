@@ -11,7 +11,11 @@ export interface Customer {
   phone: string; email: string; address1: string; address2: string; city: string; state: string;
   postal_code: string; tax_exempt: boolean; notes: string; updated_at: string; updated_by: string
 }
-export interface LineItem { item_name?: string; description?: string; quantity: number; unit_price: number; [key: string]: unknown }
+export interface LineItem {
+  item_name?: string; description?: string; quantity: number; unit_price: number;
+  catalog_product_id?: string; catalog_item_code?: string; catalog_category?: string;
+  catalog_unit?: string; price_overridden?: boolean; [key: string]: unknown
+}
 export interface WorkOrder {
   id: string; version: number; customer_id: string; location_id: string; order_number: string; status: string; priority: string;
   received_date: string; due_date: string; assigned_to: string; delivery_method: string; po_number: string; description: string;
@@ -80,7 +84,7 @@ export interface OperationsChecklistItem {
 
 
 export interface InventoryItemRecord {
-  id: string; location_id: string; name: string; sku: string; category: string; unit: string;
+  id: string; location_id: string; catalog_product_id: string | null; name: string; sku: string; category: string; unit: string;
   quantity: number; reorder_point: number; target_stock: number; cost_per_unit: number;
   vendor: string; vendor_sku: string; notes: string; active: boolean; version: number;
   created_by: string; updated_by: string; created_at: string; updated_at: string;
@@ -109,4 +113,25 @@ export interface EquipmentServiceEventRecord {
   id: string; equipment_id: string; location_id: string; event_date: string;
   event_type: 'Maintenance' | 'Repair' | 'Inspection' | 'Service Call' | 'Issue Reported' | 'Other';
   summary: string; provider: string; cost: number; recorded_by: string; recorded_by_name: string; created_at: string;
+}
+
+
+export interface CatalogPriceTier {
+  id?: string; min_qty: number; max_qty: number | null; price: number; price_unit: number;
+  is_default: boolean; sort_order: number;
+}
+
+export interface CatalogProduct {
+  id: string; source_item_code: string | null; category: string; name: string; unit: string;
+  currency: string; manual_price: boolean; active: boolean; version: number;
+  created_by: string; updated_by: string; created_at: string; updated_at: string;
+  resolved_price: number | null; resolved_tier_id: string | null; tiers: CatalogPriceTier[];
+}
+
+export interface CatalogSummary {
+  products: number; active_products: number; categories: number; manual_price: number;
+  tiered_products: number;
+  initial_import: {
+    source_name: string; product_count: number; price_row_count: number; imported_at: string;
+  } | null;
 }
