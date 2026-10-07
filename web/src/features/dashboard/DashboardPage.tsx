@@ -1,4 +1,5 @@
 import { IssueSummary } from '../issues/IssueSummary'
+import { TaskSummaryPanel } from '../tasks/TaskSummaryPanel'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../../api/http'
@@ -53,7 +54,7 @@ export function DashboardPage() {
   return <section>
     <div className="page-heading">
       <div>
-        <h1>Main Dashboard</h1>
+        <h1>Operations Dashboard</h1>
         <p className="muted">
           All pending work across every location{!online ? ' · cached data' : ''}.
           {' '}Active working store: {session?.location.name} #{session?.location.store_number}
