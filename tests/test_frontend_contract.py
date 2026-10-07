@@ -53,5 +53,19 @@ class FrontendOfflineSessionContractTests(unittest.TestCase):
         self.assertIn("dashboard-attention-equipment", attention)
 
 
+    def test_shared_product_catalog_is_routed_and_used_by_orders_and_inventory(self):
+        app = (ROOT / 'web/src/App.tsx').read_text(encoding='utf-8')
+        shell = (ROOT / 'web/src/layout/AppShell.tsx').read_text(encoding='utf-8')
+        order = (ROOT / 'web/src/features/orders/OrderEditor.tsx').read_text(encoding='utf-8')
+        assets = (ROOT / 'web/src/features/assets/AssetsPage.tsx').read_text(encoding='utf-8')
+        self.assertIn('path="catalog"', app)
+        self.assertIn('Products & Pricing', shell)
+        self.assertIn('CatalogProductPicker', order)
+        self.assertIn('resolveCatalogPrice', order)
+        self.assertIn('price_overridden', order)
+        self.assertIn('CatalogProductPicker', assets)
+        self.assertIn('catalog_product_id', assets)
+
+
 if __name__ == '__main__':
     unittest.main()
