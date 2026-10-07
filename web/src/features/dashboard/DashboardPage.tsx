@@ -1,3 +1,4 @@
+import { TaskSummary } from '../tasks/TaskSummary'
 import { IssueSummary } from '../issues/IssueSummary'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -69,6 +70,7 @@ export function DashboardPage() {
       <div className="metric"><span>Overdue</span><strong>{overdue.length}</strong></div>
     </div>
 
+    <TaskSummary/>
     <IssueSummary compact/>
 
     <div className="store-summary-grid" aria-label="Pending orders by store">
