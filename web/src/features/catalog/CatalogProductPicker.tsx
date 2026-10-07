@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CatalogProduct } from '../../api/types'
 import { catalogDisplayLabel } from '../../api/catalog'
 
@@ -19,6 +19,7 @@ export function CatalogProductPicker({
 }){
   const selected=products.find(product=>product.id===value)??null
   const [text,setText]=useState(selected?catalogDisplayLabel(selected):'')
+  useEffect(()=>{setText(selected?catalogDisplayLabel(selected):'')},[selected?.id])
   const listId=idPrefix+'-list'
   const byLabel=useMemo(()=>{
     const map=new Map<string,CatalogProduct>()
