@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { listIssues } from '../../api/issues'
 import { listMailboxes } from '../../api/mailboxes'
 import { listTasks } from '../../api/tasks'
+import { listShippingCases } from '../../api/shipping'
 import type { WorkOrder } from '../../api/types'
 import { useSession } from '../../auth/SessionContext'
 import { useOnline } from '../../offline/OnlineState'
@@ -10,7 +11,7 @@ import { storeDate } from '../issues/time'
 
 type AttentionItem = {
   key: string
-  type: 'Print Order' | 'Task' | 'Customer Issue' | 'Mailbox'
+  type: 'Print Order' | 'Task' | 'Customer Issue' | 'Mailbox' | 'Shipping Case'
   title: string
   store: string
   due: string
@@ -32,6 +33,7 @@ export function AttentionQueue({orders}:{orders:WorkOrder[]}) {
   const tasks=useQuery({queryKey:['dashboard-attention-tasks'],queryFn:()=>listTasks({open_only:true,limit:250}),enabled:online})
   const issues=useQuery({queryKey:['dashboard-attention-issues'],queryFn:()=>listIssues({unresolved_only:true,limit:250,offset:0}),enabled:online})
   const mailboxes=useQuery({queryKey:['dashboard-attention-mailboxes'],queryFn:()=>listMailboxes({limit:250}),enabled:online})
+  const shipping=useQuery({queryKey:['dashboard-attention-shipping'],queryFn:()=>listShippingCases({open_only:true,limit:250}),enabled:online})
   const locationMap=new Map((session?.locations??[]).map(location=>[location.id,location]))
   const items:AttentionItem[]=[]
 
@@ -84,6 +86,24 @@ export function AttentionQueue({orders}:{orders:WorkOrder[]}) {
     })
   }
 
+  for(const item of shipping.data?.cases??[]){
+    const today=storeDate(item.store?.timezone||'America/New_York')
+    const overdue=Boolean(item.follow_up_date&&item.follow_up_date<today)
+    const dueToday=Boolean(item.follow_up_date&&item.follow_up_date===today)
+    const approved=item.status==='Approved'
+    if(!(overdue||dueToday||approved))continue
+    items.push({
+      key:`shipping-${item.id}`,
+      type:'Shipping Case',
+      title:`${item.case_type} · ${item.tracking_number}`,
+      store:item.store?`${item.store.name} #${item.store.store_number}`:'Unknown store',
+      due:item.follow_up_date||'No follow-up date',
+      priority:overdue?'Overdue':approved?'Approved':'Due today',
+      href:item.customer_id?`/shipping?customer_id=${item.customer_id}`:'/shipping',
+      rank:overdue?0:approved?1:1,
+    })
+  }
+
   for(const issue of issues.data?.issues??[]){
     const today=storeDate(issue.store?.timezone||'America/New_York')
     const urgent=['High','Urgent'].includes(issue.priority)
@@ -104,7 +124,7 @@ export function AttentionQueue({orders}:{orders:WorkOrder[]}) {
   const visible=items.slice(0,12)
 
   return <div className="panel attention-queue">
-    <div className="section-heading"><div><h2>Needs Attention</h2><p className="muted">Overdue, blocked, compliance-missing, rush, high-priority, and urgent work across all stores.</p></div><strong>{items.length}</strong></div>
+    <div className="section-heading"><div><h2>Needs Attention</h2><p className="muted">Overdue, blocked, compliance-missing, approved-refund, rush, high-priority, and urgent work across all stores.</p></div><strong>{items.length}</strong></div>
     {!visible.length?<p className="empty-state">Nothing currently needs immediate attention.</p>:<div className="table-wrap"><table>
       <thead><tr><th>Type</th><th>Item</th><th>Store</th><th>Due / Follow-up</th><th>Priority</th></tr></thead>
       <tbody>{visible.map(item=><tr key={item.key} className={item.rank===0?'overdue-row':undefined}>
@@ -112,6 +132,6 @@ export function AttentionQueue({orders}:{orders:WorkOrder[]}) {
       </tr>)}</tbody>
     </table></div>}
     {items.length>visible.length&&<p className="muted">Showing the 12 most urgent items.</p>}
-    {!online&&<p className="muted">Offline mode shows cached print-order attention only; mailboxes, tasks, and customer issues require a connection.</p>}
+    {!online&&<p className="muted">Offline mode shows cached print-order attention only; mailboxes, shipping cases, tasks, and customer issues require a connection.</p>}
   </div>
 }
