@@ -62,7 +62,7 @@ export function AppShell() {
       </div>
     </header>
     <aside className="sidebar" aria-label="Main navigation">
-      <NavLink to="/" end>Main Dashboard</NavLink>
+      <NavLink to="/" end>Operations Dashboard</NavLink>
       <NavLink to="/orders">Work Orders</NavLink>
       <NavLink to="/customers">Customers</NavLink>
       <NavLink to="/issues">Customer Issues</NavLink>
