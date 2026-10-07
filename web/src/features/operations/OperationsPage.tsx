@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import {
   completeOperationsItem,
   createOperationsTemplate,
@@ -37,9 +38,10 @@ export function OperationsPage(){
   const {session}=useSession()
   const {online}=useOnline()
   const qc=useQueryClient()
+  const [searchParams]=useSearchParams()
   const canManage=session?.employee.role==='supervisor'||session?.employee.role==='admin'
-  const [locationId,setLocationId]=useState(session?.location.id??'')
-  const [date,setDate]=useState(today())
+  const [locationId,setLocationId]=useState(searchParams.get('location_id')||session?.location.id||'')
+  const [date,setDate]=useState(searchParams.get('date')||today())
   const [showManage,setShowManage]=useState(false)
   const [showInactive,setShowInactive]=useState(false)
   const [form,setForm]=useState<ChecklistTemplateInput>({
