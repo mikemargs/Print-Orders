@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { apiFetch, ApiError } from '../../api/http'
 import { categories, channels, createIssue, getIssue, issueOptions, logCommunication, priorities, updateIssue, type CommunicationInput, type CustomerIssue, type IssueInput } from '../../api/issues'
 import type { Customer, WorkOrder } from '../../api/types'
@@ -14,16 +14,16 @@ async function matchingOrders(customerId:string,locationId:string){const rows:Wo
 function inputFrom(row:CustomerIssue):IssueInput{return {customer_id:row.customer_id,location_id:row.location_id,title:row.title,description:row.description,category:row.category,priority:row.priority,assigned_employee_id:row.assigned_employee_id,work_order_id:row.work_order_id,next_action:row.next_action,follow_up_date:row.follow_up_date}}
 
 export function IssueEditor(){
- const {id}=useParams();const {online}=useOnline()
+ const {id}=useParams();const [searchParams]=useSearchParams();const {online}=useOnline()
  const query=useIssueQuery(['detail',id],()=>getIssue(id!),!!id)
  if(id&&!query.data){return <section><h1>Customer issue</h1>{!online?<p className="offline-banner">Customer issues require an online connection.</p>:query.error?<p className="error" role="alert">{query.error.message} <button onClick={()=>void query.refetch()}>Retry case</button></p>:<p>Loading case…</p>}<Link to="/issues">Back to cases</Link></section>}
- return <IssueForm key={id||'new'} source={query.data}/>
+ return <IssueForm key={id||'new'} source={query.data} initialCustomerId={!id?(searchParams.get('customer_id')||''):''}/>
 }
 
-function IssueForm({source}:{source?:CustomerIssue}){
+function IssueForm({source,initialCustomerId='' }:{source?:CustomerIssue;initialCustomerId?:string}){
  const {session}=useSession();const {online}=useOnline();const navigate=useNavigate();const refresh=useRefreshIssues()
  const [current,setCurrent]=useState(source)
- const [values,setValues]=useState<IssueInput>(()=>source?inputFrom(source):{customer_id:'',location_id:session?.location.id||'',title:'',description:'',category:'Customer Service',priority:'Normal',assigned_employee_id:null,work_order_id:null,next_action:'',follow_up_date:null})
+ const [values,setValues]=useState<IssueInput>(()=>source?inputFrom(source):{customer_id:initialCustomerId,location_id:session?.location.id||'',title:'',description:'',category:'Customer Service',priority:'Normal',assigned_employee_id:null,work_order_id:null,next_action:'',follow_up_date:null})
  const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');const [conflict,setConflict]=useState<CustomerIssue|null>(null)
  const [resolution,setResolution]=useState(source?.resolution_summary||'');const [reopenReason,setReopenReason]=useState('')
  const timezone=current?.store?.timezone||session?.locations.find(l=>l.id===values.location_id)?.timezone||'America/New_York'
