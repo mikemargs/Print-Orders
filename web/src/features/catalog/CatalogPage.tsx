@@ -90,7 +90,7 @@ export function CatalogPage(){
       currency:product.currency,
       manual_price:product.manual_price,
       active:product.active,
-      tiers:product.tiers.map(({id:_,...tier})=>tier),
+      tiers:product.tiers.map(tier=>({min_qty:tier.min_qty,max_qty:tier.max_qty,price:tier.price,price_unit:tier.price_unit,is_default:tier.is_default,sort_order:tier.sort_order})),
     })
     setFormOpen(true)
   }
