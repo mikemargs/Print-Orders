@@ -16,6 +16,7 @@ class StrictBody(BaseModel):
 
 class InventoryItemCreate(StrictBody):
     location_id: str = Field(min_length=1, max_length=36)
+    catalog_product_id: str | None = Field(default=None, max_length=36)
     name: str = Field(min_length=1, max_length=220)
     sku: str = Field(default="", max_length=100)
     category: str = Field(default="General", min_length=1, max_length=80)
