@@ -2,7 +2,7 @@ import { apiFetch } from './http'
 import type { OperationalTask } from './types'
 
 export type TaskSummary = { open: number; overdue: number; high_priority: number; assigned_to_me: number }
-export type TaskFilters = { search?: string; location_id?: string; status?: string; priority?: string; assigned_employee_id?: string; open_only?: boolean; limit?: number; offset?: number }
+export type TaskFilters = { search?: string; location_id?: string; status?: string; priority?: string; assigned_employee_id?: string; customer_id?: string; open_only?: boolean; limit?: number; offset?: number }
 export type TaskOptions = {
   employees: { id: string; name: string; location_ids: string[]; role: string }[]
   customers: { id: string; company: string; first_name: string; last_name: string }[]
