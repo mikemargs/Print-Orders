@@ -181,20 +181,19 @@ def resolve_catalog_price(
     ]
     chosen = None
     if ranged:
-        chosen = sorted(
+        chosen = max(
             ranged,
             key=lambda tier: (Decimal(tier.min_qty), tier.sort_order),
-            reverse=True,
-        )[0]
+        )
     else:
         defaults = [tier for tier in tiers if tier.is_default]
         if defaults:
-            chosen = sorted(defaults, key=lambda tier: tier.sort_order)[0]
+            chosen = min(defaults, key=lambda tier: tier.sort_order)
         elif tiers:
-            chosen = sorted(
+            chosen = min(
                 tiers,
                 key=lambda tier: (Decimal(tier.min_qty), tier.sort_order),
-            )[0]
+            )
 
     if not chosen:
         return None, None
