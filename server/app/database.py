@@ -201,6 +201,29 @@ class CustomerIssue(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+
+
+class OperationalTask(Base):
+    __tablename__ = "operational_tasks"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    location_id: Mapped[str] = mapped_column(ForeignKey("locations.id"), index=True)
+    title: Mapped[str] = mapped_column(String(220))
+    description: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(30), default="Open", index=True)
+    priority: Mapped[str] = mapped_column(String(20), default="Normal")
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    assigned_employee_id: Mapped[str | None] = mapped_column(ForeignKey("employees.id"), nullable=True, index=True)
+    customer_id: Mapped[str | None] = mapped_column(ForeignKey("customers.id"), nullable=True)
+    work_order_id: Mapped[str | None] = mapped_column(ForeignKey("work_orders.id"), nullable=True)
+    customer_issue_id: Mapped[str | None] = mapped_column(ForeignKey("customer_issues.id"), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_by: Mapped[str] = mapped_column(String(36))
+    updated_by: Mapped[str] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
 class IssueActivity(Base):
     __tablename__ = 'issue_activities'
     __table_args__ = (UniqueConstraint('company_id', 'operation_id', name='uq_issue_activity_operation'),)
@@ -220,3 +243,5 @@ class IssueActivity(Base):
 
 Index("ix_issue_company_store_status", CustomerIssue.company_id, CustomerIssue.location_id, CustomerIssue.status)
 Index("ix_issue_activity_timeline", IssueActivity.issue_id, IssueActivity.occurred_at, IssueActivity.recorded_at)
+
+Index("ix_tasks_company_location_status", OperationalTask.company_id, OperationalTask.location_id, OperationalTask.status)
