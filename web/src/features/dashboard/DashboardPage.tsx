@@ -1,3 +1,4 @@
+import { ShippingSummary } from '../shipping/ShippingSummary'
 import { MailboxSummary } from '../mailboxes/MailboxSummary'
 import { AttentionQueue } from './AttentionQueue'
 import { TaskSummary } from '../tasks/TaskSummary'
@@ -74,6 +75,7 @@ export function DashboardPage() {
 
     <AttentionQueue orders={pending}/>
     <MailboxSummary/>
+    <ShippingSummary/>
     <TaskSummary/>
     <IssueSummary compact/>
 
