@@ -332,6 +332,86 @@ class OperationsChecklistCompletion(Base):
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     version: Mapped[int] = mapped_column(Integer, default=1)
 
+
+
+class InventoryItem(Base):
+    __tablename__ = "inventory_items"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    location_id: Mapped[str] = mapped_column(ForeignKey("locations.id"), index=True)
+    name: Mapped[str] = mapped_column(String(220), index=True)
+    sku: Mapped[str] = mapped_column(String(100), default="")
+    category: Mapped[str] = mapped_column(String(80), default="General")
+    unit: Mapped[str] = mapped_column(String(40), default="each")
+    quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    reorder_point: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    target_stock: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    cost_per_unit: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    vendor: Mapped[str] = mapped_column(String(180), default="")
+    vendor_sku: Mapped[str] = mapped_column(String(120), default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_by: Mapped[str] = mapped_column(String(36))
+    updated_by: Mapped[str] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class InventoryAdjustment(Base):
+    __tablename__ = "inventory_adjustments"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    item_id: Mapped[str] = mapped_column(ForeignKey("inventory_items.id"), index=True)
+    location_id: Mapped[str] = mapped_column(ForeignKey("locations.id"), index=True)
+    change_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    resulting_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    reason: Mapped[str] = mapped_column(String(60))
+    notes: Mapped[str] = mapped_column(Text, default="")
+    adjusted_by: Mapped[str] = mapped_column(ForeignKey("employees.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class EquipmentAsset(Base):
+    __tablename__ = "equipment_assets"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    location_id: Mapped[str] = mapped_column(ForeignKey("locations.id"), index=True)
+    name: Mapped[str] = mapped_column(String(220))
+    category: Mapped[str] = mapped_column(String(80), default="Equipment")
+    asset_tag: Mapped[str] = mapped_column(String(100), default="")
+    manufacturer: Mapped[str] = mapped_column(String(120), default="")
+    model: Mapped[str] = mapped_column(String(160), default="")
+    serial_number: Mapped[str] = mapped_column(String(160), default="")
+    status: Mapped[str] = mapped_column(String(40), default="Operational", index=True)
+    purchase_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    warranty_expiration: Mapped[date | None] = mapped_column(Date, nullable=True)
+    vendor: Mapped[str] = mapped_column(String(180), default="")
+    service_provider: Mapped[str] = mapped_column(String(180), default="")
+    next_service_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_by: Mapped[str] = mapped_column(String(36))
+    updated_by: Mapped[str] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class EquipmentServiceEvent(Base):
+    __tablename__ = "equipment_service_events"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    equipment_id: Mapped[str] = mapped_column(ForeignKey("equipment_assets.id"), index=True)
+    location_id: Mapped[str] = mapped_column(ForeignKey("locations.id"), index=True)
+    event_date: Mapped[date] = mapped_column(Date)
+    event_type: Mapped[str] = mapped_column(String(60))
+    summary: Mapped[str] = mapped_column(Text)
+    provider: Mapped[str] = mapped_column(String(180), default="")
+    cost: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    recorded_by: Mapped[str] = mapped_column(ForeignKey("employees.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
 class IssueActivity(Base):
     __tablename__ = 'issue_activities'
     __table_args__ = (UniqueConstraint('company_id', 'operation_id', name='uq_issue_activity_operation'),)
@@ -360,3 +440,10 @@ Index("ix_shipping_company_store_status", ShippingCase.company_id, ShippingCase.
 
 Index("ix_ops_template_company_store_active", OperationsChecklistTemplate.company_id, OperationsChecklistTemplate.location_id, OperationsChecklistTemplate.active)
 Index("ix_ops_completion_company_store_date", OperationsChecklistCompletion.company_id, OperationsChecklistCompletion.location_id, OperationsChecklistCompletion.checklist_date)
+
+Index("ix_inventory_company_store_active", InventoryItem.company_id, InventoryItem.location_id, InventoryItem.active)
+Index("ix_inventory_company_name", InventoryItem.company_id, InventoryItem.name)
+Index("ix_inventory_adjustment_item_time", InventoryAdjustment.item_id, InventoryAdjustment.created_at)
+Index("ix_equipment_company_store_status", EquipmentAsset.company_id, EquipmentAsset.location_id, EquipmentAsset.status)
+Index("ix_equipment_next_service", EquipmentAsset.company_id, EquipmentAsset.next_service_date)
+Index("ix_equipment_service_asset_date", EquipmentServiceEvent.equipment_id, EquipmentServiceEvent.event_date)
