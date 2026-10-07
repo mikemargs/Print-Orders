@@ -21,6 +21,7 @@ export type InventoryFilters = {
 
 export type InventoryItemInput = {
   location_id: string
+  catalog_product_id: string | null
   name: string
   sku: string
   category: string
