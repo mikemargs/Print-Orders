@@ -34,10 +34,9 @@ export function TasksPage() {
     queryFn: () => apiFetch<{ employees: Employee[] }>('/api/tasks/options'),
     enabled: online,
   })
-  const employees = options.data?.employees ?? []
-  const eligibleEmployees = useMemo(() => employees.filter(employee =>
+  const eligibleEmployees = useMemo(() => (options.data?.employees ?? []).filter(employee =>
     employee.role === 'admin' || !employee.location_ids.length || employee.location_ids.includes(session?.location.id ?? ''),
-  ), [employees, session?.location.id])
+  ), [options.data?.employees, session?.location.id])
 
   useEffect(() => {
     if (assignee && !eligibleEmployees.some(employee => employee.id === assignee)) setAssignee('')
