@@ -47,3 +47,18 @@ export interface MailboxRecord {
   store: { id: string; name: string; store_number: string; timezone: string } | null;
   customer: Pick<Customer,'id'|'company'|'first_name'|'last_name'|'phone'|'email'> | null;
 }
+
+
+export interface ShippingCaseRecord {
+  id: string; location_id: string; customer_id: string; customer_issue_id: string | null;
+  tracking_number: string; carrier: string; service_level: string;
+  case_type: 'GSR' | 'Late Delivery' | 'Lost Package' | 'Damage Claim' | 'Shipping Claim' | 'Address Correction' | 'Other';
+  status: 'Open' | 'Submitted' | 'Awaiting Carrier' | 'Awaiting Customer' | 'Approved' | 'Denied' | 'Refunded' | 'Resolved';
+  ship_date: string | null; promised_date: string | null; delivered_date: string | null;
+  carrier_reference: string; amount_requested: number; amount_approved: number;
+  next_action: string; follow_up_date: string | null; notes: string; version: number;
+  created_by: string; updated_by: string; created_at: string; updated_at: string; resolved_at: string | null;
+  store: { id: string; name: string; store_number: string; timezone: string } | null;
+  customer: Pick<Customer,'id'|'company'|'first_name'|'last_name'|'phone'|'email'> | null;
+  issue_reference: string | null; issue_title: string | null;
+}
