@@ -4,8 +4,8 @@ Revision ID: 0008_store_tasks
 Revises: 0007_customer_issues
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "0008_store_tasks"
 down_revision = "0007_customer_issues"
