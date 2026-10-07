@@ -10,7 +10,7 @@ class FrontendOfflineSessionContractTests(unittest.TestCase):
         self.assertIn("JSON.stringify(session)", source)
         self.assertNotIn("const { csrf_token: _csrf, ...safe } = session", source)
 
-    def test_main_dashboard_is_company_wide_and_store_switch_stays_available(self):
+    def test_operations_dashboard_is_company_wide_and_store_switch_stays_available(self):
         main = (ROOT / 'web/src/features/dashboard/DashboardPage.tsx').read_text(encoding='utf-8')
         shell = (ROOT / 'web/src/layout/AppShell.tsx').read_text(encoding='utf-8')
         app = (ROOT / 'web/src/App.tsx').read_text(encoding='utf-8')
@@ -20,6 +20,8 @@ class FrontendOfflineSessionContractTests(unittest.TestCase):
         self.assertIn("navigate('/', { replace: true })", shell)
         self.assertNotIn("Store Dashboard", shell)
         self.assertNotIn('path="store-dashboard"', app)
+        self.assertIn('path="tasks"', app)
+        self.assertIn('Tasks &amp; Follow-Ups', shell)
 
     def test_non_admin_order_editor_only_offers_selected_store(self):
         source = (ROOT / 'web/src/features/orders/OrderEditor.tsx').read_text(encoding='utf-8')
