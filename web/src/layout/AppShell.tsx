@@ -65,6 +65,7 @@ export function AppShell() {
       <NavLink to="/" end>Main Dashboard</NavLink>
       <NavLink to="/orders">Work Orders</NavLink>
       <NavLink to="/customers">Customers</NavLink>
+      <NavLink to="/mailboxes">Mailboxes</NavLink>
       <NavLink to="/tasks">Tasks & Follow-Ups</NavLink>
       <NavLink to="/issues">Customer Issues</NavLink>
       {(role === 'supervisor' || role === 'admin') && <NavLink to="/reports">Reports</NavLink>}
