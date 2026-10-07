@@ -18,7 +18,7 @@ class MailboxCreate(StrictBody):
     mailbox_number: str = Field(min_length=1, max_length=30)
     status: MailboxStatus = "Active"
     renewal_date: date | None = None
-    balance_due: Decimal = Field(default=Decimal("0"), ge=0)
+    balance_due: Decimal = Field(default=Decimal(0), ge=0)
     primary_id_on_file: bool = False
     secondary_id_on_file: bool = False
     form_1583_complete: bool = False
