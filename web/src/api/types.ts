@@ -20,3 +20,17 @@ export interface WorkOrder {
   items: LineItem[]; updated_at: string; updated_by: string; is_deleted: boolean; has_artwork?: boolean
 }
 export interface Attachment { id: string; order_id: string; object_key: string; original_filename: string; mime_type: string; size_bytes: number; uploaded_by: string; created_at: string; checksum: string; active: boolean; deleted?: boolean }
+
+
+export interface OperationalTask {
+  id: string; location_id: string; title: string; description: string;
+  status: 'Open' | 'In Progress' | 'Waiting' | 'Completed' | 'Cancelled';
+  priority: 'Low' | 'Normal' | 'High' | 'Urgent'; due_date: string | null;
+  assigned_employee_id: string | null; customer_id: string | null; work_order_id: string | null;
+  customer_issue_id: string | null; version: number; created_by: string; updated_by: string;
+  created_at: string; updated_at: string; completed_at: string | null;
+  store?: { id: string; name: string; store_number: string } | null;
+  assignee?: { id: string; name: string } | null;
+  customer?: { id: string; company: string; first_name: string; last_name: string } | null;
+  order_number?: string | null; issue_reference?: string | null;
+}
