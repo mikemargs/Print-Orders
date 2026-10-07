@@ -77,3 +77,36 @@ export interface OperationsChecklistItem {
   store: { id: string; name: string; store_number: string; timezone: string } | null;
   completion: OperationsChecklistCompletion | null;
 }
+
+
+export interface InventoryItemRecord {
+  id: string; location_id: string; name: string; sku: string; category: string; unit: string;
+  quantity: number; reorder_point: number; target_stock: number; cost_per_unit: number;
+  vendor: string; vendor_sku: string; notes: string; active: boolean; version: number;
+  created_by: string; updated_by: string; created_at: string; updated_at: string;
+  low_stock: boolean; out_of_stock: boolean; stock_value: number;
+  store: { id: string; name: string; store_number: string } | null;
+}
+
+export interface InventoryAdjustmentRecord {
+  id: string; item_id: string; location_id: string; change_amount: number; resulting_quantity: number;
+  reason: 'Received' | 'Used' | 'Count Correction' | 'Waste' | 'Other'; notes: string;
+  adjusted_by: string; adjusted_by_name: string; created_at: string;
+}
+
+export interface EquipmentAssetRecord {
+  id: string; location_id: string; name: string; category: string; asset_tag: string;
+  manufacturer: string; model: string; serial_number: string;
+  status: 'Operational' | 'Needs Attention' | 'Out of Service' | 'Retired';
+  purchase_date: string | null; warranty_expiration: string | null; vendor: string;
+  service_provider: string; next_service_date: string | null; notes: string; active: boolean;
+  version: number; created_by: string; updated_by: string; created_at: string; updated_at: string;
+  service_overdue: boolean; service_due_30: boolean;
+  store: { id: string; name: string; store_number: string; timezone: string } | null;
+}
+
+export interface EquipmentServiceEventRecord {
+  id: string; equipment_id: string; location_id: string; event_date: string;
+  event_type: 'Maintenance' | 'Repair' | 'Inspection' | 'Service Call' | 'Issue Reported' | 'Other';
+  summary: string; provider: string; cost: number; recorded_by: string; recorded_by_name: string; created_at: string;
+}
