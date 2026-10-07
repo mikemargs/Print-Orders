@@ -259,6 +259,36 @@ class Mailbox(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+
+
+class ShippingCase(Base):
+    __tablename__ = "shipping_cases"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    location_id: Mapped[str] = mapped_column(ForeignKey("locations.id"), index=True)
+    customer_id: Mapped[str] = mapped_column(ForeignKey("customers.id"), index=True)
+    customer_issue_id: Mapped[str | None] = mapped_column(ForeignKey("customer_issues.id"), nullable=True, index=True)
+    tracking_number: Mapped[str] = mapped_column(String(120), index=True)
+    carrier: Mapped[str] = mapped_column(String(60), default="UPS")
+    service_level: Mapped[str] = mapped_column(String(120), default="")
+    case_type: Mapped[str] = mapped_column(String(40))
+    status: Mapped[str] = mapped_column(String(40), default="Open", index=True)
+    ship_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    promised_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    delivered_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    carrier_reference: Mapped[str] = mapped_column(String(160), default="")
+    amount_requested: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    amount_approved: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    next_action: Mapped[str] = mapped_column(Text, default="")
+    follow_up_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_by: Mapped[str] = mapped_column(String(36))
+    updated_by: Mapped[str] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
 class IssueActivity(Base):
     __tablename__ = 'issue_activities'
     __table_args__ = (UniqueConstraint('company_id', 'operation_id', name='uq_issue_activity_operation'),)
@@ -282,3 +312,5 @@ Index("ix_issue_activity_timeline", IssueActivity.issue_id, IssueActivity.occurr
 Index("ix_tasks_company_location_status", OperationalTask.company_id, OperationalTask.location_id, OperationalTask.status)
 
 Index("ix_mailboxes_company_store_status", Mailbox.company_id, Mailbox.location_id, Mailbox.status)
+
+Index("ix_shipping_company_store_status", ShippingCase.company_id, ShippingCase.location_id, ShippingCase.status)
