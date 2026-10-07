@@ -76,28 +76,30 @@ def upgrade():
         sa.UniqueConstraint("company_id", "source_key", name="uq_catalog_import_company_source"),
     )
 
-    op.add_column(
-        "inventory_items",
-        sa.Column("catalog_product_id", sa.String(length=36), nullable=True),
-    )
-    op.create_foreign_key(
-        "fk_inventory_catalog_product",
-        "inventory_items",
-        "catalog_products",
-        ["catalog_product_id"],
-        ["id"],
-    )
-    op.create_index(
-        "ix_inventory_catalog_product",
-        "inventory_items",
-        ["company_id", "catalog_product_id"],
-    )
+    with op.batch_alter_table("inventory_items") as batch_op:
+        batch_op.add_column(
+            sa.Column("catalog_product_id", sa.String(length=36), nullable=True)
+        )
+        batch_op.create_foreign_key(
+            "fk_inventory_catalog_product",
+            "catalog_products",
+            ["catalog_product_id"],
+            ["id"],
+        )
+        batch_op.create_index(
+            "ix_inventory_catalog_product",
+            ["company_id", "catalog_product_id"],
+        )
 
 
 def downgrade():
-    op.drop_index("ix_inventory_catalog_product", table_name="inventory_items")
-    op.drop_constraint("fk_inventory_catalog_product", "inventory_items", type_="foreignkey")
-    op.drop_column("inventory_items", "catalog_product_id")
+    with op.batch_alter_table("inventory_items") as batch_op:
+        batch_op.drop_index("ix_inventory_catalog_product")
+        batch_op.drop_constraint(
+            "fk_inventory_catalog_product",
+            type_="foreignkey",
+        )
+        batch_op.drop_column("catalog_product_id")
     op.drop_table("catalog_import_batches")
     op.drop_table("catalog_price_tiers")
     op.drop_table("catalog_products")
