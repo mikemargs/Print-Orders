@@ -32,6 +32,7 @@ from .routers.files import router as files_router
 from .routers.issues import router as issues_router
 from .routers.mailboxes import router as mailboxes_router
 from .routers.orders import router as orders_router
+from .routers.shipping import router as shipping_router
 from .routers.tasks import router as tasks_router
 from .routers.web import router as web_router
 from .routers.web_auth import router as web_auth_router
@@ -269,6 +270,7 @@ app.include_router(customers_router)
 app.include_router(orders_router)
 app.include_router(issues_router)
 app.include_router(mailboxes_router)
+app.include_router(shipping_router)
 app.include_router(tasks_router)
 app.include_router(files_router)
 

@@ -4,6 +4,7 @@ import { apiFetch } from '../../api/http'
 import { listIssues } from '../../api/issues'
 import { listMailboxes } from '../../api/mailboxes'
 import { listTasks } from '../../api/tasks'
+import { listShippingCases } from '../../api/shipping'
 import type { Customer, WorkOrder } from '../../api/types'
 import { useSession } from '../../auth/SessionContext'
 import { useOnline } from '../../offline/OnlineState'
@@ -64,6 +65,12 @@ export function CustomerProfile() {
     queryFn: () => listMailboxes({ customer_id: id, limit: 250 }),
   })
 
+  const shipping = useQuery({
+    queryKey: ['customer-profile-shipping', id],
+    enabled: Boolean(id) && online,
+    queryFn: () => listShippingCases({ customer_id: id, open_only: false, limit: 250 }),
+  })
+
   if (customer.isLoading) return <section><h1>Customer</h1><p>Loading…</p></section>
   if (customer.error || !customer.data) return <section><h1>Customer</h1><p className="error">{customer.error instanceof Error ? customer.error.message : 'Customer not found'}</p><Link to="/customers">Back to customers</Link></section>
 
@@ -76,6 +83,8 @@ export function CustomerProfile() {
   const openTasks = allTasks.filter(task => !['Completed', 'Cancelled'].includes(task.status))
   const allMailboxes = mailboxes.data?.mailboxes ?? []
   const activeMailboxes = allMailboxes.filter(mailbox => mailbox.status !== 'Closed')
+  const allShipping = shipping.data?.cases ?? []
+  const openShipping = allShipping.filter(item => !['Denied', 'Refunded', 'Resolved'].includes(item.status))
   const locationMap = new Map((session?.locations ?? []).map(location => [location.id, location]))
   const address = [row.address1, row.address2, row.city, row.state, row.postal_code].filter(Boolean).join(', ')
 
@@ -88,6 +97,7 @@ export function CustomerProfile() {
         {online && <Link className="button secondary" to={`/issues/new?customer_id=${row.id}`}>New Customer Issue</Link>}
         {online && <Link className="button secondary" to={`/tasks?customer_id=${row.id}&new=1`}>New Task</Link>}
         {online && <Link className="button secondary" to={`/mailboxes?customer_id=${row.id}&new=1`}>New Mailbox</Link>}
+        {online && <Link className="button secondary" to={`/shipping?customer_id=${row.id}&new=1`}>New Shipping Case</Link>}
         <Link className="button secondary" to="/customers">Back</Link>
       </div>
     </div>
@@ -108,7 +118,19 @@ export function CustomerProfile() {
       <div className="metric"><span>Open customer issues</span><strong>{online ? openIssues.length : '—'}</strong></div>
       <div className="metric"><span>Open tasks</span><strong>{online ? openTasks.length : '—'}</strong></div>
       <div className="metric"><span>Active mailboxes</span><strong>{online ? activeMailboxes.length : '—'}</strong></div>
+      <div className="metric"><span>Open shipping cases</span><strong>{online ? openShipping.length : '—'}</strong></div>
       <div className="metric"><span>Print orders on file</span><strong>{allOrders.length}</strong></div>
+    </div>
+
+    <div className="panel">
+      <div className="section-heading"><h2>Shipping, Claims &amp; GSR</h2><Link to={`/shipping?customer_id=${row.id}`}>View shipping cases</Link></div>
+      {!online ? <p className="muted">Shipping cases require an online connection.</p> : shipping.isLoading ? <p>Loading shipping cases…</p> : allShipping.length ? <div className="table-wrap"><table>
+        <thead><tr><th>Tracking</th><th>Store</th><th>Type</th><th>Status</th><th>Follow-up</th><th>Reference</th><th>Approved</th></tr></thead>
+        <tbody>{allShipping.slice(0,10).map(item => <tr key={item.id}>
+          <td><strong>{item.tracking_number}</strong><small className="issue-meta">{item.carrier} {item.service_level}</small></td>
+          <td>{item.store?`${item.store.name} #${item.store.store_number}`:'—'}</td><td>{item.case_type}</td><td>{item.status}</td><td>{item.follow_up_date||'—'}</td><td>{item.carrier_reference||'—'}</td><td>${Number(item.amount_approved).toFixed(2)}</td>
+        </tr>)}</tbody>
+      </table></div> : <p className="empty-state">No shipping cases are linked to this customer.</p>}
     </div>
 
     <div className="panel">

@@ -6,6 +6,7 @@ import { apiFetch } from '../../api/http'
 import { listIssues } from '../../api/issues'
 import { listMailboxes } from '../../api/mailboxes'
 import { listTasks } from '../../api/tasks'
+import { listShippingCases } from '../../api/shipping'
 import { useSession } from '../../auth/SessionContext'
 import { useOnline } from '../../offline/OnlineState'
 import { cacheCustomers, cacheOrders } from '../../offline/db'
@@ -15,6 +16,7 @@ vi.mock('../../api/http', () => ({ apiFetch: vi.fn() }))
 vi.mock('../../api/issues', () => ({ listIssues: vi.fn() }))
 vi.mock('../../api/mailboxes', () => ({ listMailboxes: vi.fn() }))
 vi.mock('../../api/tasks', () => ({ listTasks: vi.fn() }))
+vi.mock('../../api/shipping', () => ({ listShippingCases: vi.fn() }))
 vi.mock('../../auth/SessionContext', () => ({ useSession: vi.fn() }))
 vi.mock('../../offline/OnlineState', () => ({ useOnline: vi.fn() }))
 vi.mock('../../offline/db', () => ({
@@ -90,6 +92,20 @@ describe('CustomerProfile', () => {
     }] })
 
 
+    vi.mocked(listShippingCases).mockResolvedValue({ total: 1, cases: [{
+      id: 's1', location_id: 's1', customer_id: 'c1', customer_issue_id: 'i1',
+      tracking_number: '1ZTEST123', carrier: 'UPS', service_level: 'Next Day Air',
+      case_type: 'GSR', status: 'Submitted', ship_date: '2026-10-01', promised_date: '2026-10-02',
+      delivered_date: '2026-10-03', carrier_reference: 'GSR-123', amount_requested: 42.5,
+      amount_approved: 0, next_action: 'Check response', follow_up_date: '2026-10-08', notes: '',
+      version: 1, created_by: 'e1', updated_by: 'e1', created_at: '2026-10-07T12:00:00Z',
+      updated_at: '2026-10-07T12:00:00Z', resolved_at: null,
+      store: { id: 's1', name: 'Sayville', store_number: '5127', timezone: 'America/New_York' },
+      customer: { id: 'c1', company: 'Acme Landscaping', first_name: 'Sam', last_name: 'Lee', phone: '631-555-0100', email: 'sam@example.com' },
+      issue_reference: 'CI-1', issue_title: 'Delivery concern',
+    }] })
+
+
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <MemoryRouter initialEntries={['/customers/c1']}>
@@ -103,10 +119,12 @@ describe('CustomerProfile', () => {
     expect(screen.getByText('Delivery concern')).toBeInTheDocument()
     expect(screen.getByText('Confirm artwork')).toBeInTheDocument()
     expect(screen.getByText('#201')).toBeInTheDocument()
+    expect(screen.getByText('1ZTEST123')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Edit Customer' })).toHaveAttribute('href', '/customers/c1/edit')
     expect(screen.getByRole('link', { name: 'New Work Order' })).toHaveAttribute('href', '/orders/new?customer_id=c1')
     expect(screen.getByRole('link', { name: 'New Customer Issue' })).toHaveAttribute('href', '/issues/new?customer_id=c1')
     expect(screen.getByRole('link', { name: 'New Task' })).toHaveAttribute('href', '/tasks?customer_id=c1&new=1')
     expect(screen.getByRole('link', { name: 'New Mailbox' })).toHaveAttribute('href', '/mailboxes?customer_id=c1&new=1')
+    expect(screen.getByRole('link', { name: 'New Shipping Case' })).toHaveAttribute('href', '/shipping?customer_id=c1&new=1')
   })
 })
