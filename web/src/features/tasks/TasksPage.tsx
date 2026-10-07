@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { apiFetch } from '../../api/http'
 import { getTaskOptions, listTasks } from '../../api/tasks'
 import type { OperationalTask } from '../../api/types'
@@ -13,11 +14,14 @@ export function TasksPage(){
   const {session}=useSession()
   const {online}=useOnline()
   const qc=useQueryClient()
-  const [showCreate,setShowCreate]=useState(false)
+  const [searchParams]=useSearchParams()
+  const initialCustomerId=searchParams.get('customer_id')||''
+  const [showCreate,setShowCreate]=useState(searchParams.get('new')==='1')
   const [search,setSearch]=useState('')
   const [status,setStatus]=useState('')
   const [locationId,setLocationId]=useState('')
   const [assignedEmployeeId,setAssignedEmployeeId]=useState('')
+  const [customerId,setCustomerId]=useState(initialCustomerId)
   const [includeClosed,setIncludeClosed]=useState(false)
   const [form,setForm]=useState({
     location_id:session?.location.id||'',
@@ -27,18 +31,19 @@ export function TasksPage(){
     priority:'Normal',
     due_date:'',
     assigned_employee_id:'',
-    customer_id:'',
+    customer_id:initialCustomerId,
     work_order_id:'',
     customer_issue_id:'',
   })
 
   const query=useQuery({
-    queryKey:['tasks',search,status,locationId,assignedEmployeeId,includeClosed],
+    queryKey:['tasks',search,status,locationId,assignedEmployeeId,customerId,includeClosed],
     queryFn:()=>listTasks({
       search,
       status,
       location_id:locationId,
       assigned_employee_id:assignedEmployeeId,
+      customer_id:customerId,
       open_only:!includeClosed&&!status,
       limit:250,
     }),
@@ -116,6 +121,7 @@ export function TasksPage(){
       {create.error&&<p className="error span-2">{create.error instanceof Error?create.error.message:'Unable to create task'}</p>}
     </form>}
 
+    {customerId&&<div className="notice">Customer filter is active. <button className="link-button" onClick={()=>{setCustomerId('');setForm(old=>({...old,customer_id:''}))}}>Clear customer filter</button></div>}
     <div className="toolbar order-filters">
       <input placeholder="Search tasks…" value={search} onChange={e=>setSearch(e.target.value)}/>
       <select aria-label="Task store filter" value={locationId} onChange={e=>setLocationId(e.target.value)}><option value="">All stores</option>{session?.locations.map(l=><option key={l.id} value={l.id}>{l.name} #{l.store_number}</option>)}</select>

@@ -44,7 +44,7 @@ def _serialize(db: Session, row: OperationalTask) -> dict:
         "created_at": row.created_at.isoformat(),
         "updated_at": row.updated_at.isoformat(),
         "completed_at": row.completed_at.isoformat() if row.completed_at else None,
-        "store": {"id": store.id, "name": store.name, "store_number": store.store_number} if store else None,
+        "store": {"id": store.id, "name": store.name, "store_number": store.store_number, "timezone": store.timezone} if store else None,
         "assignee": {"id": employee.id, "name": employee.name} if employee else None,
         "customer": (
             {"id": customer.id, "company": customer.company, "first_name": customer.first_name, "last_name": customer.last_name}
@@ -97,6 +97,7 @@ def list_tasks(
     status: str = "",
     priority: str = "",
     assigned_employee_id: str = "",
+    customer_id: str = "",
     open_only: bool = True,
     limit: int = Query(100, ge=1, le=250),
     offset: int = Query(0, ge=0),
@@ -114,6 +115,8 @@ def list_tasks(
         q = q.where(OperationalTask.priority == priority)
     if assigned_employee_id:
         q = q.where(OperationalTask.assigned_employee_id == assigned_employee_id)
+    if customer_id:
+        q = q.where(OperationalTask.customer_id == customer_id)
     if search.strip():
         needle = f"%{search.strip()}%"
         q = q.where(or_(OperationalTask.title.ilike(needle), OperationalTask.description.ilike(needle)))

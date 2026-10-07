@@ -29,7 +29,7 @@ export interface OperationalTask {
   assigned_employee_id: string | null; customer_id: string | null; work_order_id: string | null;
   customer_issue_id: string | null; version: number; created_by: string; updated_by: string;
   created_at: string; updated_at: string; completed_at: string | null;
-  store?: { id: string; name: string; store_number: string } | null;
+  store?: { id: string; name: string; store_number: string; timezone?: string } | null;
   assignee?: { id: string; name: string } | null;
   customer?: { id: string; company: string; first_name: string; last_name: string } | null;
   order_number?: string | null; issue_reference?: string | null;

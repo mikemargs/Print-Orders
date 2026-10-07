@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { apiFetch, ApiError } from '../../api/http'
 import { categories, channels, createIssue, getIssue, issueOptions, logCommunication, priorities, updateIssue, type CommunicationInput, type CustomerIssue, type IssueInput } from '../../api/issues'
 import type { Customer, WorkOrder } from '../../api/types'
@@ -14,16 +14,16 @@ async function matchingOrders(customerId:string,locationId:string){const rows:Wo
 function inputFrom(row:CustomerIssue):IssueInput{return {customer_id:row.customer_id,location_id:row.location_id,title:row.title,description:row.description,category:row.category,priority:row.priority,assigned_employee_id:row.assigned_employee_id,work_order_id:row.work_order_id,next_action:row.next_action,follow_up_date:row.follow_up_date}}
 
 export function IssueEditor(){
- const {id}=useParams();const {online}=useOnline()
+ const {id}=useParams();const [searchParams]=useSearchParams();const {online}=useOnline()
  const query=useIssueQuery(['detail',id],()=>getIssue(id!),!!id)
  if(id&&!query.data){return <section><h1>Customer issue</h1>{!online?<p className="offline-banner">Customer issues require an online connection.</p>:query.error?<p className="error" role="alert">{query.error.message} <button onClick={()=>void query.refetch()}>Retry case</button></p>:<p>Loading case…</p>}<Link to="/issues">Back to cases</Link></section>}
- return <IssueForm key={id||'new'} source={query.data}/>
+ return <IssueForm key={id||'new'} source={query.data} initialCustomerId={!id?(searchParams.get('customer_id')||''):''}/>
 }
 
-function IssueForm({source}:{source?:CustomerIssue}){
+function IssueForm({source,initialCustomerId='' }:{source?:CustomerIssue;initialCustomerId?:string}){
  const {session}=useSession();const {online}=useOnline();const navigate=useNavigate();const refresh=useRefreshIssues()
  const [current,setCurrent]=useState(source)
- const [values,setValues]=useState<IssueInput>(()=>source?inputFrom(source):{customer_id:'',location_id:session?.location.id||'',title:'',description:'',category:'Customer Service',priority:'Normal',assigned_employee_id:null,work_order_id:null,next_action:'',follow_up_date:null})
+ const [values,setValues]=useState<IssueInput>(()=>source?inputFrom(source):{customer_id:initialCustomerId,location_id:session?.location.id||'',title:'',description:'',category:'Customer Service',priority:'Normal',assigned_employee_id:null,work_order_id:null,next_action:'',follow_up_date:null})
  const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');const [conflict,setConflict]=useState<CustomerIssue|null>(null)
  const [resolution,setResolution]=useState(source?.resolution_summary||'');const [reopenReason,setReopenReason]=useState('')
  const timezone=current?.store?.timezone||session?.locations.find(l=>l.id===values.location_id)?.timezone||'America/New_York'
@@ -71,7 +71,7 @@ function IssueForm({source}:{source?:CustomerIssue}){
   <form className="panel" onSubmit={save}><fieldset className="form-grid issue-fieldset" disabled={disabled||uncertainLog}>
    <label>Customer<select required value={values.customer_id} onChange={e=>change('customer_id',e.target.value)}><option value="">Select customer</option>{customers.data?.map(c=><option key={c.id} value={c.id}>{c.company||`${c.first_name} ${c.last_name}`.trim()||'Unnamed customer'}</option>)}{current?.customer&&!customers.data?.some(c=>c.id===current.customer_id)&&<option value={current.customer_id}>{current.customer.company||`${current.customer.first_name} ${current.customer.last_name}`}</option>}</select></label>
    <label>Store<select required value={values.location_id} onChange={e=>change('location_id',e.target.value)}>{session?.locations.filter(l=>session.employee.role==='admin'||l.id===session.location.id||l.id===current?.location_id).map(l=><option key={l.id} value={l.id}>{l.name} #{l.store_number}</option>)}</select></label>
-   <div className="span-2 button-row"><Link target="_blank" rel="noopener noreferrer" to="/customers/new">Create customer in a new tab</Link>{current&&<Link to={`/customers/${current.customer_id}`}>View / edit customer</Link>}<button type="button" className="secondary" onClick={()=>void customers.refetch()}>Refresh customer choices</button><span className="muted">After creating a customer, refresh and select them here.</span></div>
+   <div className="span-2 button-row"><Link target="_blank" rel="noopener noreferrer" to="/customers/new">Create customer in a new tab</Link>{current&&<Link to={`/customers/${current.customer_id}`}>View customer profile</Link>}<button type="button" className="secondary" onClick={()=>void customers.refetch()}>Refresh customer choices</button><span className="muted">After creating a customer, refresh and select them here.</span></div>
    {current?.customer&&<p className="span-2 muted">Phone: {current.customer.phone||'Not provided'} · Email: {current.customer.email||'Not provided'}</p>}
    <label className="span-2">Case title<input required maxLength={200} value={values.title} onChange={e=>change('title',e.target.value)}/></label>
    <label className="span-2">Issue description<textarea required maxLength={10000} rows={4} value={values.description} onChange={e=>change('description',e.target.value)}/></label>

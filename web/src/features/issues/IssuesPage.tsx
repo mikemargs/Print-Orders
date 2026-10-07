@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { categories, issueOptions, listIssues, priorities, statuses, type IssueFilters } from '../../api/issues'
 import { useSession } from '../../auth/SessionContext'
 import { useOnline } from '../../offline/OnlineState'
@@ -7,13 +7,14 @@ import { IssueSummary } from './IssueSummary'
 import { useIssueQuery } from './useIssues'
 import { overdue } from './time'
 export function IssuesPage(){
- const {session}=useSession();const {online}=useOnline()
- const [filters,setFilters]=useState<IssueFilters>({unresolved_only:true});const [offset,setOffset]=useState(0)
+ const {session}=useSession();const {online}=useOnline();const [searchParams]=useSearchParams();const initialCustomerId=searchParams.get('customer_id')||''
+ const [filters,setFilters]=useState<IssueFilters>({customer_id:initialCustomerId,unresolved_only:true});const [offset,setOffset]=useState(0)
  const query=useIssueQuery(['list',filters,offset],()=>listIssues({...filters,limit:50,offset}))
  const options=useIssueQuery(['options'],issueOptions)
  function change(name:keyof IssueFilters,value:string|boolean){setFilters(old=>({...old,[name]:value}));setOffset(0)}
  return <section>
-  <div className="page-heading"><div><h1>Customer Issues</h1><p className="muted">Complaints, conversations, and follow-ups across all stores.</p></div>{online&&<Link className="button" to="/issues/new">New case</Link>}</div>
+  <div className="page-heading"><div><h1>Customer Issues</h1><p className="muted">Complaints, conversations, and follow-ups across all stores.</p></div>{online&&<Link className="button" to={filters.customer_id?`/issues/new?customer_id=${filters.customer_id}`:'/issues/new'}>New case</Link>}</div>
+  {filters.customer_id&&<div className="notice">Customer filter is active. <button className="link-button" onClick={()=>change('customer_id','')}>Clear customer filter</button></div>}
   {!online&&<p className="offline-banner">Customer issues require an online connection. Previously loaded cases may be out of date; editing is unavailable.</p>}
   <IssueSummary filters={filters}/>
   <div className="panel issue-filters">

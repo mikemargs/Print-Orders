@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useFieldArray, useForm } from 'react-hook-form'
 import { useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError, apiFetch } from '../../api/http'
 import type { Customer, LineItem, WorkOrder } from '../../api/types'
 import { useSession } from '../../auth/SessionContext'
@@ -41,9 +41,9 @@ export function toOrderFormValues(source: Partial<FormValues>): FormValues {
 }
 
 export function OrderEditor() {
-  const {id}=useParams(); const editing=Boolean(id&&id!=='new'); const navigate=useNavigate(); const queryClient=useQueryClient(); const {session}=useSession(); const {online}=useOnline(); const [version,setVersion]=useState(0); const [error,setError]=useState(''); const [conflict,setConflict]=useState<WorkOrder|null>(null); const [offlineOrder,setOfflineOrder]=useState<WorkOrder|null>(null); const [currentOrder,setCurrentOrder]=useState<WorkOrder|null>(null); const [editMode,setEditMode]=useState(!editing); const [deleting,setDeleting]=useState(false)
+  const {id}=useParams(); const editing=Boolean(id&&id!=='new'); const [searchParams]=useSearchParams(); const initialCustomerId=!editing?(searchParams.get('customer_id')??''):''; const navigate=useNavigate(); const queryClient=useQueryClient(); const {session}=useSession(); const {online}=useOnline(); const [version,setVersion]=useState(0); const [error,setError]=useState(''); const [conflict,setConflict]=useState<WorkOrder|null>(null); const [offlineOrder,setOfflineOrder]=useState<WorkOrder|null>(null); const [currentOrder,setCurrentOrder]=useState<WorkOrder|null>(null); const [editMode,setEditMode]=useState(!editing); const [deleting,setDeleting]=useState(false)
   const [customerRows,setCustomers]=useState<Customer[]>([])
-  const {register,control,handleSubmit,reset,watch,formState:{isSubmitting}}=useForm<FormValues>({defaultValues:{customer_id:'',location_id:session?.location.id??'',status:'New',priority:'Normal',received_date:today(),due_date:'',assigned_to:'',delivery_method:'Pickup',po_number:'',description:'',production_notes:'',customer_notes:'',tax_rate:0,deposit:0,discount:0,discount_mode:'amount',discount_percent:0,items:[{item_name:'',quantity:1,unit_price:0}]}})
+  const {register,control,handleSubmit,reset,watch,formState:{isSubmitting}}=useForm<FormValues>({defaultValues:{customer_id:initialCustomerId,location_id:session?.location.id??'',status:'New',priority:'Normal',received_date:today(),due_date:'',assigned_to:'',delivery_method:'Pickup',po_number:'',description:'',production_notes:'',customer_notes:'',tax_rate:0,deposit:0,discount:0,discount_mode:'amount',discount_percent:0,items:[{item_name:'',quantity:1,unit_price:0}]}})
   const fields=useFieldArray({control,name:'items'})
   useEffect(()=>{if(!editing){setEditMode(true);setCurrentOrder(null)}else setEditMode(false);if(!online){if(editing&&id)void cachedOrder(id).then(x=>setOfflineOrder(x??null));return}void cachedCustomers().then(rows=>{if(rows.length)setCustomers(rows)});void apiFetch<{customers:Customer[]}>('/api/customers?limit=200').then(async x=>{setCustomers(x.customers);await cacheCustomers(x.customers)});if(editing)void apiFetch<WorkOrder>(`/api/orders/${id}`).then(async o=>{setCurrentOrder(o);setVersion(o.version);reset(toOrderFormValues(o));await cacheOrders([o])}).catch(e=>setError(e instanceof Error?e.message:'Unable to load order'))},[editing,id,reset,online])
   const items=watch('items'); const discountMode=watch('discount_mode'); const discountPercent=watch('discount_percent'); const discountAmount=watch('discount'); const subtotal=(items??[]).reduce((sum,x)=>sum+(Number(x.quantity)||0)*(Number(x.unit_price)||0),0); const previewDiscount=discountMode==='percent'?subtotal*Math.min(Math.max(Number(discountPercent)||0,0),100)/100:Math.max(Number(discountAmount)||0,0)

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { apiFetch } from '../../api/http'
 import type { WorkOrder } from '../../api/types'
 import { useSession } from '../../auth/SessionContext'
@@ -10,15 +10,18 @@ import { cacheOrders, cachedOrders } from '../../offline/db'
 export function OrdersPage() {
   const { session } = useSession()
   const { online } = useOnline()
+  const [searchParams] = useSearchParams()
+  const initialCustomerId = searchParams.get('customer_id') ?? ''
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [priority, setPriority] = useState('')
-  const [locationId, setLocationId] = useState(session?.location.id ?? '')
+  const [customerId, setCustomerId] = useState(initialCustomerId)
+  const [locationId, setLocationId] = useState(initialCustomerId ? '' : (session?.location.id ?? ''))
   const [dueStart, setDueStart] = useState('')
   const [dueEnd, setDueEnd] = useState('')
 
   const query = useQuery({
-    queryKey: ['orders', search, status, priority, locationId, dueStart, dueEnd, online],
+    queryKey: ['orders', search, status, priority, customerId, locationId, dueStart, dueEnd, online],
     queryFn: async () => {
       if (!online) {
         let rows = await cachedOrders()
@@ -28,6 +31,7 @@ export function OrdersPage() {
             `${order.order_number} ${order.description}`.toLowerCase().includes(needle),
           )
         }
+        if (customerId) rows = rows.filter(order => order.customer_id === customerId)
         if (status) rows = rows.filter(order => order.status === status)
         if (priority) rows = rows.filter(order => order.priority === priority)
         if (locationId) rows = rows.filter(order => order.location_id === locationId)
@@ -38,6 +42,7 @@ export function OrdersPage() {
 
       const params = new URLSearchParams({ limit: '250' })
       if (search.trim()) params.set('search', search.trim())
+      if (customerId) params.set('customer_id', customerId)
       if (status) params.set('status', status)
       if (priority) params.set('priority', priority)
       if (locationId) params.set('location_id', locationId)
@@ -55,8 +60,9 @@ export function OrdersPage() {
         <h1>Work Orders</h1>
         {!online && <p className="muted">Showing cached orders · read only</p>}
       </div>
-      {online && <Link className="button" to="/orders/new">New work order</Link>}
+      {online && <Link className="button" to={customerId ? `/orders/new?customer_id=${customerId}` : '/orders/new'}>New work order</Link>}
     </div>
+    {customerId && <div className="notice">Customer filter is active. <button className="link-button" onClick={()=>setCustomerId('')}>Clear customer filter</button></div>}
     <div className="toolbar order-filters">
       <input placeholder="Search orders…" value={search} onChange={event => setSearch(event.target.value)} />
       <select aria-label="Store filter" value={locationId} onChange={event => setLocationId(event.target.value)}>
