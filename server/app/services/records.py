@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth_context import AuthContext
-from ..database import Customer, Location, SyncEvent, WorkOrder, utcnow
+from ..database import CatalogProduct, Customer, Location, SyncEvent, WorkOrder, utcnow
 from .common import Conflict, Forbidden, Invalid
 
 CUSTOMER_FIELDS = {
@@ -172,6 +172,31 @@ def validate_order_payload(payload: dict) -> None:
             raise Invalid("Order item quantity and price cannot be negative")
         if quantity > MAX_MONEY or unit_price > MAX_MONEY:
             raise Invalid("Order item quantity or price exceeds the supported maximum")
+        catalog_product_id = item.get("catalog_product_id")
+        if catalog_product_id is not None and (
+            not isinstance(catalog_product_id, str) or len(catalog_product_id) > 36
+        ):
+            raise Invalid("Catalog product id is invalid")
+        catalog_item_code = item.get("catalog_item_code", "")
+        if catalog_item_code is not None and (
+            not isinstance(catalog_item_code, str) or len(catalog_item_code) > 100
+        ):
+            raise Invalid("Catalog item code must be text of 100 characters or fewer")
+        catalog_category = item.get("catalog_category", "")
+        if catalog_category is not None and (
+            not isinstance(catalog_category, str) or len(catalog_category) > 120
+        ):
+            raise Invalid("Catalog category must be text of 120 characters or fewer")
+
+
+def validate_order_catalog_items(db: Session, auth: AuthContext, items: list | None) -> None:
+    for item in items or []:
+        catalog_product_id = item.get("catalog_product_id") if isinstance(item, dict) else None
+        if not catalog_product_id:
+            continue
+        product = db.get(CatalogProduct, catalog_product_id)
+        if not product or product.company_id != auth.company_id:
+            raise Invalid("Catalog product was not found")
 
 
 def validate_order_access(db: Session, auth: AuthContext, customer_id: str, location_id: str) -> None:
@@ -224,6 +249,7 @@ def create_or_update_order(db: Session, auth: AuthContext, order_id: str, expect
     effective_customer = payload.get("customer_id") or (record.customer_id if record else "")
     effective_location = payload.get("location_id") or (record.location_id if record else "")
     validate_order_access(db, auth, effective_customer, effective_location)
+    validate_order_catalog_items(db, auth, payload.get("items"))
     location = db.get(Location, effective_location)
     if not record:
         record = WorkOrder(id=order_id, company_id=auth.company_id)

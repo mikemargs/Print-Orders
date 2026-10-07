@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
+import { listCatalog } from '../../api/catalog'
 import {
   adjustInventoryItem,
   createInventoryItem,
@@ -29,13 +30,14 @@ import type {
 } from '../../api/types'
 import { useSession } from '../../auth/SessionContext'
 import { useOnline } from '../../offline/OnlineState'
+import { CatalogProductPicker } from '../catalog/CatalogProductPicker'
 
 const inventoryReasons = ['Received','Used','Count Correction','Waste','Other'] as const
 const today = () => new Date().toISOString().slice(0, 10)
 
 function emptyInventory(locationId: string): InventoryItemInput {
   return {
-    location_id: locationId, name: '', sku: '', category: 'General', unit: 'each',
+    location_id: locationId, catalog_product_id: null, name: '', sku: '', category: 'General', unit: 'each',
     quantity: 0, reorder_point: 0, target_stock: 0, cost_per_unit: 0,
     vendor: '', vendor_sku: '', notes: '', active: true,
   }
@@ -107,6 +109,7 @@ export function AssetsPage() {
   })
   const [eqHistoryId, setEqHistoryId] = useState('')
 
+  const catalog=useQuery({queryKey:['catalog-all'],queryFn:()=>listCatalog({limit:2000}),enabled:online})
   const inventory = useQuery({
     queryKey: ['inventory', invSearch, invLocation, lowOnly, showInactive],
     queryFn: () => listInventory({
@@ -231,7 +234,7 @@ export function AssetsPage() {
   function startInventoryEdit(row: InventoryItemRecord) {
     setEditingInv(row)
     setInvForm({
-      location_id: row.location_id, name: row.name, sku: row.sku,
+      location_id: row.location_id, catalog_product_id: row.catalog_product_id, name: row.name, sku: row.sku,
       category: row.category, unit: row.unit, quantity: row.quantity,
       reorder_point: row.reorder_point, target_stock: row.target_stock,
       cost_per_unit: row.cost_per_unit, vendor: row.vendor,
@@ -311,6 +314,23 @@ export function AssetsPage() {
         <label>Store<select required value={invForm.location_id} onChange={event => setInvForm(old => ({ ...old, location_id: event.target.value }))}>
           {allowedStores.map(store => <option key={store!.id} value={store!.id}>{store!.name} #{store!.store_number}</option>)}
         </select></label>
+        <label className='span-2'>Catalog Product
+          <CatalogProductPicker
+            products={catalog.data?.products??[]}
+            value={invForm.catalog_product_id}
+            idPrefix='inventory-catalog'
+            placeholder='Search catalog to prefill item, category, SKU, and unit…'
+            onSelect={product=>setInvForm(old=>product?({
+              ...old,
+              catalog_product_id:product.id,
+              name:product.name,
+              sku:product.source_item_code??old.sku,
+              category:product.category,
+              unit:product.unit,
+            }):({...old,catalog_product_id:null}))}
+          />
+          <small className='muted'>Optional. Link stock to the shared Products & Pricing catalog.</small>
+        </label>
         <label>Category<input list='inventory-categories' required value={invForm.category} onChange={event => setInvForm(old => ({ ...old, category: event.target.value }))}/><datalist id='inventory-categories'>{inventoryCategories.map(value => <option key={value} value={value}/>)}</datalist></label>
         <label className='span-2'>Item name<input required maxLength={220} value={invForm.name} onChange={event => setInvForm(old => ({ ...old, name: event.target.value }))}/></label>
         <label>SKU / Item #<input maxLength={100} value={invForm.sku} onChange={event => setInvForm(old => ({ ...old, sku: event.target.value }))}/></label>
@@ -380,7 +400,7 @@ export function AssetsPage() {
                 <tbody>{inventory.data.items.map(row => {
                   const canWrite = session?.employee.role === 'admin' || row.location_id === session?.location.id
                   return <tr key={row.id} className={row.out_of_stock ? 'overdue-row' : row.low_stock ? 'attention-row' : row.active ? undefined : 'inactive-row'}>
-                    <td><strong>{row.name}</strong>{row.sku && <small className='issue-meta'>SKU: {row.sku}</small>}</td>
+                    <td><strong>{row.name}</strong>{row.sku && <small className='issue-meta'>SKU: {row.sku}</small>}{row.catalog_product_id&&<small className='issue-meta'>Catalog linked</small>}</td>
                     <td>{row.store ? row.store.name + ' #' + row.store.store_number : '—'}</td>
                     <td>{row.category}</td><td><strong>{row.quantity}</strong> {row.unit}</td>
                     <td>{row.reorder_point}</td><td>{row.target_stock || '—'}</td>

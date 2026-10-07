@@ -6,6 +6,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from ..database import (
+    CatalogProduct,
     Employee,
     InventoryAdjustment,
     InventoryItem,
@@ -42,6 +43,16 @@ def _manager_scope(db: Session, auth, location_id: str):
     return _write_scope(db, auth, location_id)
 
 
+
+def _validate_catalog_link(db: Session, auth, catalog_product_id: str | None):
+    if not catalog_product_id:
+        return None
+    product = db.get(CatalogProduct, catalog_product_id)
+    if not product or product.company_id != auth.company_id or not product.active:
+        raise HTTPException(400, "Choose an active catalog product")
+    return product
+
+
 def _serialize(db: Session, row: InventoryItem) -> dict:
     store = db.get(Location, row.location_id)
     quantity = Decimal(row.quantity or 0)
@@ -60,6 +71,7 @@ def _serialize(db: Session, row: InventoryItem) -> dict:
         "cost_per_unit": float(cost_per_unit),
         "vendor": row.vendor,
         "vendor_sku": row.vendor_sku,
+        "catalog_product_id": row.catalog_product_id,
         "notes": row.notes,
         "active": row.active,
         "version": row.version,
@@ -218,6 +230,7 @@ def create_inventory_item(
     db: Session = Depends(get_web_db),
 ):
     _manager_scope(db, auth, body.location_id)
+    _validate_catalog_link(db, auth, body.catalog_product_id)
     row = InventoryItem(
         id=str(uuid4()),
         company_id=auth.company_id,
@@ -261,6 +274,7 @@ def update_inventory_item(
         raise HTTPException(404, "Inventory item not found")
     _manager_scope(db, auth, row.location_id)
     _manager_scope(db, auth, body.location_id)
+    _validate_catalog_link(db, auth, body.catalog_product_id)
     if row.version != body.version:
         raise HTTPException(409, "This inventory item changed on another device")
     if Decimal(body.quantity) != Decimal(row.quantity):

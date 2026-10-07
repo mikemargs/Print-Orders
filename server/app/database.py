@@ -334,6 +334,67 @@ class OperationsChecklistCompletion(Base):
 
 
 
+
+
+class CatalogProduct(Base):
+    __tablename__ = "catalog_products"
+    __table_args__ = (
+        UniqueConstraint(
+            "company_id",
+            "source_item_code",
+            name="uq_catalog_company_item_code",
+        ),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    source_item_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    category: Mapped[str] = mapped_column(String(120), default="General")
+    name: Mapped[str] = mapped_column(String(220))
+    unit: Mapped[str] = mapped_column(String(40), default="ea")
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    manual_price: Mapped[bool] = mapped_column(Boolean, default=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_by: Mapped[str] = mapped_column(String(80))
+    updated_by: Mapped[str] = mapped_column(String(80))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CatalogPriceTier(Base):
+    __tablename__ = "catalog_price_tiers"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    product_id: Mapped[str] = mapped_column(
+        ForeignKey("catalog_products.id", ondelete="CASCADE"),
+        index=True,
+    )
+    min_qty: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    max_qty: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    price: Mapped[Decimal] = mapped_column(Numeric(12, 4), default=0)
+    price_unit: Mapped[Decimal] = mapped_column(Numeric(12, 4), default=1)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class CatalogImportBatch(Base):
+    __tablename__ = "catalog_import_batches"
+    __table_args__ = (
+        UniqueConstraint(
+            "company_id",
+            "source_key",
+            name="uq_catalog_import_company_source",
+        ),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    source_key: Mapped[str] = mapped_column(String(120))
+    source_name: Mapped[str] = mapped_column(String(255))
+    product_count: Mapped[int] = mapped_column(Integer)
+    price_row_count: Mapped[int] = mapped_column(Integer)
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class InventoryItem(Base):
     __tablename__ = "inventory_items"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -349,6 +410,11 @@ class InventoryItem(Base):
     cost_per_unit: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     vendor: Mapped[str] = mapped_column(String(180), default="")
     vendor_sku: Mapped[str] = mapped_column(String(120), default="")
+    catalog_product_id: Mapped[str | None] = mapped_column(
+        ForeignKey("catalog_products.id"),
+        nullable=True,
+        index=True,
+    )
     notes: Mapped[str] = mapped_column(Text, default="")
     active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
@@ -447,3 +513,8 @@ Index("ix_inventory_adjustment_item_time", InventoryAdjustment.item_id, Inventor
 Index("ix_equipment_company_store_status", EquipmentAsset.company_id, EquipmentAsset.location_id, EquipmentAsset.status)
 Index("ix_equipment_next_service", EquipmentAsset.company_id, EquipmentAsset.next_service_date)
 Index("ix_equipment_service_asset_date", EquipmentServiceEvent.equipment_id, EquipmentServiceEvent.event_date)
+
+Index("ix_catalog_company_active_category", CatalogProduct.company_id, CatalogProduct.active, CatalogProduct.category)
+Index("ix_catalog_company_name", CatalogProduct.company_id, CatalogProduct.name)
+Index("ix_catalog_tier_product", CatalogPriceTier.company_id, CatalogPriceTier.product_id, CatalogPriceTier.sort_order)
+Index("ix_inventory_catalog_product", InventoryItem.company_id, InventoryItem.catalog_product_id)

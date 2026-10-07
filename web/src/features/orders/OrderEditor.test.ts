@@ -55,7 +55,16 @@ describe('toOrderFormValues', () => {
       discount: 4.79,
       discount_mode: 'percent',
       discount_percent: 10,
-      items: [{ item_name: 'Poster', quantity: 1, unit_price: 47.9 }],
+      items: [{
+        item_name: 'Poster',
+        quantity: 1,
+        unit_price: 47.9,
+        catalog_product_id: '',
+        catalog_item_code: '',
+        catalog_category: '',
+        catalog_unit: '',
+        price_overridden: false,
+      }],
     })
     expect(payload).not.toHaveProperty('id')
     expect(payload).not.toHaveProperty('subtotal')
