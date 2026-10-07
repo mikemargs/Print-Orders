@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { listEquipment } from '../../api/equipment'
+import { listInventory } from '../../api/inventory'
 import { getOperationsSummary } from '../../api/operations'
 import { listIssues } from '../../api/issues'
 import { listMailboxes } from '../../api/mailboxes'
@@ -12,7 +14,7 @@ import { storeDate } from '../issues/time'
 
 type AttentionItem = {
   key: string
-  type: 'Print Order' | 'Task' | 'Customer Issue' | 'Mailbox' | 'Shipping Case' | 'Store Operations'
+  type: 'Print Order' | 'Task' | 'Customer Issue' | 'Mailbox' | 'Shipping Case' | 'Store Operations' | 'Inventory' | 'Equipment'
   title: string
   store: string
   due: string
@@ -36,6 +38,8 @@ export function AttentionQueue({orders}:{orders:WorkOrder[]}) {
   const mailboxes=useQuery({queryKey:['dashboard-attention-mailboxes'],queryFn:()=>listMailboxes({limit:250}),enabled:online})
   const shipping=useQuery({queryKey:['dashboard-attention-shipping'],queryFn:()=>listShippingCases({open_only:true,limit:250}),enabled:online})
   const operations=useQuery({queryKey:['dashboard-attention-operations'],queryFn:getOperationsSummary,enabled:online})
+  const inventory=useQuery({queryKey:['dashboard-attention-inventory'],queryFn:()=>listInventory({low_stock:true,limit:250}),enabled:online})
+  const equipment=useQuery({queryKey:['dashboard-attention-equipment'],queryFn:()=>listEquipment({attention_only:true,limit:250}),enabled:online})
   const locationMap=new Map((session?.locations??[]).map(location=>[location.id,location]))
   const items:AttentionItem[]=[]
 
@@ -120,6 +124,32 @@ export function AttentionQueue({orders}:{orders:WorkOrder[]}) {
     })
   }
 
+  for(const stock of inventory.data?.items??[]){
+    items.push({
+      key:'inventory-'+stock.id,
+      type:'Inventory',
+      title:stock.name+' · '+stock.quantity+' '+stock.unit+' on hand',
+      store:stock.store?stock.store.name+' #'+stock.store.store_number:'Unknown store',
+      due:'Now',
+      priority:stock.out_of_stock?'Out of Stock':'Low Stock',
+      href:'/assets?tab=inventory&low=1',
+      rank:stock.out_of_stock?0:1,
+    })
+  }
+
+  for(const asset of equipment.data?.equipment??[]){
+    items.push({
+      key:'equipment-'+asset.id,
+      type:'Equipment',
+      title:asset.name,
+      store:asset.store?asset.store.name+' #'+asset.store.store_number:'Unknown store',
+      due:asset.service_overdue?(asset.next_service_date||'Overdue'):'Now',
+      priority:asset.status==='Out of Service'?'Out of Service':asset.service_overdue?'Service Overdue':asset.status,
+      href:'/assets?tab=equipment&attention=1',
+      rank:asset.status==='Out of Service'||asset.service_overdue?0:1,
+    })
+  }
+
   for(const issue of issues.data?.issues??[]){
     const today=storeDate(issue.store?.timezone||'America/New_York')
     const urgent=['High','Urgent'].includes(issue.priority)
@@ -140,7 +170,7 @@ export function AttentionQueue({orders}:{orders:WorkOrder[]}) {
   const visible=items.slice(0,12)
 
   return <div className="panel attention-queue">
-    <div className="section-heading"><div><h2>Needs Attention</h2><p className="muted">Overdue, blocked, required checklist, compliance-missing, approved-refund, rush, high-priority, and urgent work across all stores.</p></div><strong>{items.length}</strong></div>
+    <div className="section-heading"><div><h2>Needs Attention</h2><p className="muted">Overdue, blocked, required checklist, low-stock, equipment, compliance-missing, approved-refund, rush, high-priority, and urgent work across all stores.</p></div><strong>{items.length}</strong></div>
     {!visible.length?<p className="empty-state">Nothing currently needs immediate attention.</p>:<div className="table-wrap"><table>
       <thead><tr><th>Type</th><th>Item</th><th>Store</th><th>Due / Follow-up</th><th>Priority</th></tr></thead>
       <tbody>{visible.map(item=><tr key={item.key} className={item.rank===0?'overdue-row':undefined}>
@@ -148,6 +178,6 @@ export function AttentionQueue({orders}:{orders:WorkOrder[]}) {
       </tr>)}</tbody>
     </table></div>}
     {items.length>visible.length&&<p className="muted">Showing the 12 most urgent items.</p>}
-    {!online&&<p className="muted">Offline mode shows cached print-order attention only; mailboxes, shipping cases, store operations, tasks, and customer issues require a connection.</p>}
+    {!online&&<p className="muted">Offline mode shows cached print-order attention only; mailboxes, shipping cases, store operations, inventory, equipment, tasks, and customer issues require a connection.</p>}
   </div>
 }
