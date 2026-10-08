@@ -107,7 +107,7 @@ export function CatalogPage(){
   }
 
   function removeTier(index:number){
-    setForm(old=>({...old,tiers:old.tiers.filter((_,i)=>i!==index).map((tier,i)=>({...tier,sort_order:i}))}))
+    setForm(old=>({...old,tiers:[...old.tiers.slice(0,index),...old.tiers.slice(index+1)].map((tier,i)=>({...tier,sort_order:i}))}))
   }
 
   const categoryOptions=useMemo(()=>categories.data?.categories??[],[categories.data?.categories])
