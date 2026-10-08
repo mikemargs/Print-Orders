@@ -28,6 +28,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const mounted = useRef(true)
   const queryClient = useQueryClient()
   const identity = useRef('')
+  const authGeneration = useRef(0)
+  const signingOut = useRef(false)
+  const pendingStoreSwitch = useRef<Promise<SessionInfo> | null>(null)
   const clearIssueQueries = useCallback(() => {
     void queryClient.cancelQueries({ queryKey: ['issues'] })
     queryClient.removeQueries({ queryKey: ['issues'] })
@@ -35,6 +38,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const setSession = useCallback((next: SessionInfo) => {
     if (!mounted.current) return
+    authGeneration.current += 1
     const nextIdentity = `${next.company.id}:${next.employee.id}`
     if (identity.current !== nextIdentity) clearIssueQueries()
     identity.current = nextIdentity
@@ -73,13 +77,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [clearIssueQueries])
 
   const refresh = useCallback(async () => {
+    if (signingOut.current) return
+    const generation = authGeneration.current
     try {
       if (await finishPendingLogout()) {
         if (mounted.current) setSessionState(null)
         return
       }
-      setSession(await apiFetch<SessionInfo>('/api/web/session'))
+      const next = await apiFetch<SessionInfo>('/api/web/session')
+      if (generation !== authGeneration.current || signingOut.current) return
+      setSession(next)
     } catch (error) {
+      if (generation !== authGeneration.current || signingOut.current) return
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         clearCsrfToken()
         clearIssueQueries()
@@ -91,6 +100,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         (error instanceof ApiError && (error.status === 0 || error.status >= 500))
       ) {
         const cached = await cachedSessionInfo()
+        if (generation !== authGeneration.current || signingOut.current) return
         if (cached) {
           if (mounted.current) {
             setCsrfToken(cached.csrf_token)
@@ -110,18 +120,35 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const switchLocation = useCallback(async (locationId: string) => {
     if (!navigator.onLine) throw new Error('Store switching requires an online connection')
-    const next = await apiFetch<SessionInfo>('/api/web/auth/location', {
+    if (signingOut.current || pendingStoreSwitch.current) throw new Error('A session change is already in progress')
+    const generation = authGeneration.current
+    const request = apiFetch<SessionInfo>('/api/web/auth/location', {
       method: 'POST',
       body: JSON.stringify({ location_id: locationId }),
     })
-    setSession(next)
+    pendingStoreSwitch.current = request
+    try {
+      const next = await request
+      if (generation !== authGeneration.current || signingOut.current) return
+      setSession(next)
+    } finally {
+      pendingStoreSwitch.current = null
+    }
   }, [setSession])
 
   const logout = useCallback(async (clearCache = true) => {
-    const csrf = session?.csrf_token || getCsrfToken()
+    if (signingOut.current) return
+    signingOut.current = true
+    authGeneration.current += 1
+    // A location response rotates the HttpOnly cookie. Let it settle before
+    // logout clears that cookie, and ignore its now-stale session state.
+    let switched: SessionInfo | null = null
+    try { switched = await pendingStoreSwitch.current } catch { /* still log out */ }
+    const csrf = switched?.csrf_token || session?.csrf_token || getCsrfToken()
     let deferServerLogout = !navigator.onLine
 
     if (navigator.onLine) {
+      if (csrf) setCsrfToken(csrf)
       try {
         await apiFetch<{ ok: boolean }>('/api/web/auth/logout', { method: 'POST' })
       } catch (error) {
@@ -134,9 +161,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     clearCsrfToken()
     clearIssueQueries()
     identity.current = ''
-    if (mounted.current) setSessionState(null)
+    // Persist the logout before exposing the login form or allowing a reload.
     if (clearCache) await clearOfflineCache()
     if (deferServerLogout && csrf) await setPendingLogoutCsrf(csrf)
+    if (mounted.current) setSessionState(null)
+    signingOut.current = false
   }, [session, clearIssueQueries])
 
   useEffect(() => {

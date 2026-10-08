@@ -189,7 +189,8 @@ def validate_order_payload(payload: dict) -> None:
             raise Invalid("Catalog category must be text of 120 characters or fewer")
 
 
-def validate_order_catalog_items(db: Session, auth: AuthContext, items: list | None) -> None:
+def validate_order_catalog_items(db: Session, auth: AuthContext, items: list | None, previous_items: list | None = None) -> None:
+    remaining_saved = list(previous_items or [])
     for item in items or []:
         catalog_product_id = item.get("catalog_product_id") if isinstance(item, dict) else None
         if not catalog_product_id:
@@ -197,6 +198,16 @@ def validate_order_catalog_items(db: Session, auth: AuthContext, items: list | N
         product = db.get(CatalogProduct, catalog_product_id)
         if not product or product.company_id != auth.company_id:
             raise Invalid("Catalog product was not found")
+        # Each saved row can exempt only one matching row. This preserves
+        # historical prices after removal/reordering without exempting new copies.
+        match = next((index for index, old in enumerate(remaining_saved)
+            if old.get("catalog_product_id") == catalog_product_id
+            and old.get("unit_price") == item.get("unit_price")), None)
+        unchanged_saved_price = match is not None
+        if match is not None:
+            remaining_saved.pop(match)
+        if product.manual_price and item.get("price_overridden") is not True and not unchanged_saved_price:
+            raise Invalid("Enter a price for each manual-price product (including an intentional zero)")
 
 
 def validate_order_access(db: Session, auth: AuthContext, customer_id: str, location_id: str) -> None:
@@ -249,7 +260,7 @@ def create_or_update_order(db: Session, auth: AuthContext, order_id: str, expect
     effective_customer = payload.get("customer_id") or (record.customer_id if record else "")
     effective_location = payload.get("location_id") or (record.location_id if record else "")
     validate_order_access(db, auth, effective_customer, effective_location)
-    validate_order_catalog_items(db, auth, payload.get("items"))
+    validate_order_catalog_items(db, auth, payload.get("items"), record.items if record else None)
     location = db.get(Location, effective_location)
     if not record:
         record = WorkOrder(id=order_id, company_id=auth.company_id)
