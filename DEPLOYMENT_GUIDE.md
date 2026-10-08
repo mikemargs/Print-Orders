@@ -191,3 +191,30 @@ discards complaint history. The older application code ignores the new tables.
 Manual communication logging only is included. There are no automatic reminders,
 email sending, complaint attachments or customer-facing portal. Customer issues
 need an online connection; complaint histories are not cached persistently offline.
+
+## Products and Pricing catalog rollout
+
+Back up the database and rehearse the upgrade on a non-production copy. Verify
+Alembic revision `0013_product_pricing_catalog` after deploying the new image.
+Opening **Products & Pricing** initializes the bundled `Store Prices 10.7.26.xlsx`
+catalog once per company. Initialization is transactional and concurrent first
+requests are serialized through a company row lock in PostgreSQL.
+
+Before enabling store-wide use:
+
+- Confirm the initial import shows 1,148 products, 1,173 price rows and 19 categories.
+- Verify copy item 36001 at quantities 1, 100, 500 and 1,000 resolves to $0.30,
+  $0.25, $0.15 and $0.08 per unit respectively.
+- Select a manual-price product and enter its price explicitly. An intentional
+  zero is permitted after entering it; an untouched default zero cannot be saved.
+- Save an order, change a catalog price, then confirm that saved order retains its
+  historical price. Existing saved manual prices can still be edited without
+  being retroactively repriced.
+- Link an inventory item to a product and verify its name, SKU, category and unit.
+  Catalog links do not automatically deduct stock when an order is saved.
+- Verify employees can read/select products, while catalog edits require a
+  supervisor or administrator. Catalog pricing is company-wide across stores.
+
+The bundled workbook is the initial seed, not a recurring spreadsheet import.
+For rollback builds, retain all deployed migrations through revision 0013; do not
+redeploy an older image whose migration history stops at an earlier revision.

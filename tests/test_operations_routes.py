@@ -1,8 +1,9 @@
 import os
 import sys
 import unittest
-from datetime import date
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -118,7 +119,7 @@ class OperationsRouteTests(unittest.TestCase):
 
     def test_template_completion_reset_and_summary(self):
         template = self.create_template()
-        target = date.today().isoformat()
+        target = datetime.now(ZoneInfo("America/New_York")).date().isoformat()
 
         checklist = self.client.get(
             "/api/operations/checklist",
@@ -185,13 +186,13 @@ class OperationsRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 201, response.text)
 
     def test_weekday_schedule_and_version_conflict(self):
-        weekday = date.today().weekday()
+        weekday = datetime.now(ZoneInfo("America/New_York")).date().weekday()
         other_day = (weekday + 1) % 7
         template = self.create_template(active_days=[weekday])
 
         visible = self.client.get(
             "/api/operations/checklist",
-            params={"location_id": "l1", "checklist_date": date.today().isoformat()},
+            params={"location_id": "l1", "checklist_date": datetime.now(ZoneInfo("America/New_York")).date().isoformat()},
         ).json()
         self.assertEqual(len(visible["items"]), 1)
 

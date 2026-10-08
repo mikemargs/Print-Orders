@@ -1,8 +1,9 @@
 import os
 import sys
 import unittest
-from datetime import date, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -126,7 +127,7 @@ class AssetRouteTests(unittest.TestCase):
             "warranty_expiration": None,
             "vendor": "Equipment Vendor",
             "service_provider": "Service Co",
-            "next_service_date": (date.today() - timedelta(days=1)).isoformat(),
+            "next_service_date": (datetime.now(ZoneInfo("America/New_York")).date() - timedelta(days=1)).isoformat(),
             "notes": "",
             "active": True,
         }
@@ -249,13 +250,13 @@ class AssetRouteTests(unittest.TestCase):
             f"/api/equipment/{equipment['id']}/service-events",
             json={
                 "version": issue_asset["version"],
-                "event_date": date.today().isoformat(),
+                "event_date": datetime.now(ZoneInfo("America/New_York")).date().isoformat(),
                 "event_type": "Repair",
                 "summary": "Cleared feed path",
                 "provider": "Service Co",
                 "cost": 125,
                 "status_after": "Operational",
-                "next_service_date": (date.today() + timedelta(days=90)).isoformat(),
+                "next_service_date": (datetime.now(ZoneInfo("America/New_York")).date() + timedelta(days=90)).isoformat(),
             },
             headers=self.headers,
         )
@@ -266,13 +267,13 @@ class AssetRouteTests(unittest.TestCase):
             f"/api/equipment/{equipment['id']}/service-events",
             json={
                 "version": issue_asset["version"],
-                "event_date": date.today().isoformat(),
+                "event_date": datetime.now(ZoneInfo("America/New_York")).date().isoformat(),
                 "event_type": "Repair",
                 "summary": "Cleared feed path",
                 "provider": "Service Co",
                 "cost": 125,
                 "status_after": "Operational",
-                "next_service_date": (date.today() + timedelta(days=90)).isoformat(),
+                "next_service_date": (datetime.now(ZoneInfo("America/New_York")).date() + timedelta(days=90)).isoformat(),
             },
             headers=self.headers,
         )

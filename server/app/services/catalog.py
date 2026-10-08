@@ -16,6 +16,7 @@ from ..database import (
     CatalogImportBatch,
     CatalogPriceTier,
     CatalogProduct,
+    Company,
     utcnow,
 )
 
@@ -28,6 +29,15 @@ def ensure_initial_catalog(db: Session, company_id: str) -> bool:
         )
     )
     if imported:
+        return False
+
+    # Serialize first-use imports across workers, then recheck after acquiring
+    # the PostgreSQL row lock. Keep products, tiers and batch in one transaction.
+    db.scalar(select(Company).where(Company.id == company_id).with_for_update())
+    if db.scalar(select(CatalogImportBatch).where(
+        CatalogImportBatch.company_id == company_id,
+        CatalogImportBatch.source_key == INITIAL_CATALOG_SOURCE_KEY,
+    )):
         return False
 
     rows = initial_catalog_rows()
@@ -66,6 +76,15 @@ def ensure_initial_catalog(db: Session, company_id: str) -> bool:
             db.add(product)
         product_count += 1
 
+    # No ORM relationship connects these mappers. With autoflush disabled,
+    # explicitly persist all parent rows before any price-tier INSERT.
+    db.flush()
+
+    for source_item_code, price_rows in grouped.items():
+        product_id = str(uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            f"{company_id}:{INITIAL_CATALOG_SOURCE_KEY}:product:{source_item_code}",
+        ))
         existing_tiers = {
             (
                 Decimal(tier.min_qty),

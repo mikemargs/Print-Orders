@@ -56,6 +56,8 @@ jobs:
         run: alembic upgrade head
       - name: PostgreSQL application smoke test
         run: python tests/postgres_smoke.py
+      - name: PostgreSQL concurrent catalog initialization
+        run: python tests/postgres_catalog_smoke.py
       - name: Python tests
         run: python -m unittest discover -s tests -v
       - uses: actions/setup-node@v4

@@ -8,7 +8,7 @@ async function signIn(page: Page) {
   await page.getByLabel('Employee').selectOption({ label: 'Test Admin' })
   await page.getByLabel('PIN').fill('246810')
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Main Dashboard', exact: true })).toBeVisible()
 }
 
 test('online workflow remains readable after an offline reload', async ({ page, context }) => {
@@ -29,7 +29,7 @@ test('online workflow remains readable after an offline reload', async ({ page, 
   await page.getByRole('link', { name: 'New work order' }).click()
   await page.locator('select[name="customer_id"]').selectOption({ label: customerName })
   await page.getByLabel('Description').fill(orderDescription)
-  await page.getByPlaceholder('Item / service').fill('Yard Sign')
+  await page.getByPlaceholder('Item / service / custom description').fill('Yard Sign')
   await page.getByLabel('Unit price').fill('25')
   await page.getByRole('button', { name: 'Save work order' }).click()
   await expect(page).toHaveURL(/\/orders\/[^/]+$/)
@@ -62,10 +62,10 @@ test('offline sign-out stays signed out when connectivity returns', async ({ pag
 
   await page.getByRole('button', { name: 'Sign out' }).click()
   await expect(page.getByRole('heading', { name: 'Print Order Manager' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Main Dashboard', exact: true })).toHaveCount(0)
 
   await context.setOffline(false)
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Print Order Manager' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Main Dashboard', exact: true })).toHaveCount(0)
 })

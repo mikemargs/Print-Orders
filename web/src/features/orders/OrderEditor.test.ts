@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { WorkOrder } from '../../api/types'
-import { toOrderFormValues } from './OrderEditor'
+import type { CatalogProduct, WorkOrder } from '../../api/types'
+import { manualPricesConfirmed, toOrderFormValues } from './OrderEditor'
 
 describe('toOrderFormValues', () => {
   it('strips server-managed fields before an order is submitted', () => {
@@ -74,4 +74,12 @@ describe('toOrderFormValues', () => {
     expect(payload).not.toHaveProperty('updated_by')
     expect(payload).not.toHaveProperty('is_deleted')
   })
+})
+
+it('preserves reordered historical manual prices without exempting new duplicate rows',()=>{
+ const products=[{id:'manual',manual_price:true}] as CatalogProduct[]
+ const item={catalog_product_id:'manual',quantity:1,unit_price:0,price_overridden:false}
+ expect(manualPricesConfirmed([item],products,[{item_name:'Custom',quantity:1,unit_price:5},item])).toBe(true)
+ expect(manualPricesConfirmed([item,item],products,[item])).toBe(false)
+ expect(manualPricesConfirmed([{...item,price_overridden:true},item],products,[item])).toBe(false)
 })

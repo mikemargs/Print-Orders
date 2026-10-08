@@ -55,6 +55,7 @@ test('customer issues support manual logs, follow-up, resolve and reopen across 
  const staff=await page.request.post('/api/admin/employees',{headers:{'X-CSRF-Token':session.csrf_token},data:{name:staffName,pin:'135790',role:'employee',location_ids:session.locations.map((x:{id:string})=>x.id)}})
  expect(staff.ok()).toBeTruthy()
  await page.getByRole('button',{name:'Sign out',exact:true}).click()
+ await expect(page.getByLabel('Company code')).toBeVisible()
  await signIn(page,staffName,'135790')
  await page.getByRole('combobox',{name:'Active store',exact:true}).selectOption({label:'Selden #5345'})
  await expect(page).toHaveURL(/\/$/)
