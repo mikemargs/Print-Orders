@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth_context import AuthContext
-from ..database import CatalogProduct, Customer, Location, SyncEvent, WorkOrder, utcnow
+from ..database import CatalogProduct, Company, Customer, Location, SyncEvent, WorkOrder, utcnow
 from .common import Conflict, Forbidden, Invalid
 
 CUSTOMER_FIELDS = {
@@ -263,6 +263,10 @@ def create_or_update_order(db: Session, auth: AuthContext, order_id: str, expect
     validate_order_catalog_items(db, auth, payload.get("items"), record.items if record else None)
     location = db.get(Location, effective_location)
     if not record:
+        company = db.get(Company, auth.company_id)
+        payload.setdefault("tax_rate", company.default_tax_rate)
+        payload.setdefault("priority", company.default_order_priority)
+        payload.setdefault("delivery_method", company.default_delivery_method)
         record = WorkOrder(id=order_id, company_id=auth.company_id)
         if not payload.get("order_number"):
             payload = dict(payload)

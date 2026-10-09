@@ -55,6 +55,7 @@ describe('AppShell store switcher', () => {
     expect(screen.getByText('Store Operations')).toBeInTheDocument()
     expect(screen.getByText('Inventory & Equipment')).toBeInTheDocument()
     expect(screen.getByText('Products & Pricing')).toBeInTheDocument()
+    expect(screen.queryByRole('link', {name:'Settings'})).not.toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Active store'), { target: { value: 'l2' } })
     await waitFor(() => expect(switchLocation).toHaveBeenCalledWith('l2'))
   })

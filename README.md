@@ -110,3 +110,9 @@ persistent offline cache. Existing offline work-order viewing remains available.
 Logging an email does not send an email to the customer. Separate internal staff
 notifications can be sent through Resend when a new Customer Issue is created.
 Resolution notes do not process a refund or alter order totals.
+
+## Admin settings and work-order defaults
+
+Admins can open **Settings** to set the company-wide default tax rate (0–100%, up to four decimal places), work-order priority, and delivery method. These defaults apply across all stores when a new work order is opened. Employees can override them on individual orders, including an explicit 0% tax rate. Changing defaults does not recalculate existing work orders. Settings require an internet connection; employees and supervisors cannot access the Settings page or settings API.
+
+Deployment requires `alembic upgrade head`, including migration `0014_company_settings`, before starting the updated API. Existing companies start at 0% tax, Normal priority, and Pickup delivery; an admin should configure and verify the correct tax rate before staff create new orders. Check one new order, a 0% override, and an existing order after changing the default. If another admin saved first, reload Settings before retrying a conflicting save.

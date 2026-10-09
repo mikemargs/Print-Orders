@@ -36,6 +36,7 @@ from .routers.issues import router as issues_router
 from .routers.mailboxes import router as mailboxes_router
 from .routers.operations import router as operations_router
 from .routers.orders import router as orders_router
+from .routers.settings import router as settings_router
 from .routers.shipping import router as shipping_router
 from .routers.tasks import router as tasks_router
 from .routers.web import router as web_router
@@ -275,6 +276,7 @@ app.include_router(customers_router)
 app.include_router(equipment_router)
 app.include_router(inventory_router)
 app.include_router(orders_router)
+app.include_router(settings_router)
 app.include_router(issues_router)
 app.include_router(operations_router)
 app.include_router(mailboxes_router)

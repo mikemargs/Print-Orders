@@ -137,6 +137,7 @@ it('requires explicit manual price entry before saving a catalog line', async ()
  vi.mocked(useOnline).mockReturnValue({online:true,lastSyncAt:''})
  vi.mocked(cachedCustomers).mockResolvedValue([])
  vi.mocked(apiFetch).mockImplementation(async (url:string,options?:RequestInit)=>{
+  if(url==='/api/order-defaults')return {version:1,default_tax_rate:8.625,default_order_priority:'High',default_delivery_method:'Ship'}
   if(url.startsWith('/api/catalog'))return {products:[{id:'manual',name:'Custom job',source_item_code:'M1',category:'Printing',unit:'ea',currency:'USD',manual_price:true,active:true,tiers:[],resolved_price:null}],total:1}
   if(url.startsWith('/api/customers'))return {customers:[customer]}
   if(url==='/api/orders'&&options?.method==='POST')return {...order,...JSON.parse(String(options.body))}
@@ -144,6 +145,9 @@ it('requires explicit manual price entry before saving a catalog line', async ()
  })
  render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter initialEntries={['/orders/new']}><Routes><Route path="/orders/new" element={<OrderEditor/>}/><Route path="/orders/:id" element={<p>Saved</p>}/></Routes></MemoryRouter></QueryClientProvider>)
  await screen.findByRole('option',{name:'Test Customer'})
+ expect(screen.getByLabelText('Tax %')).toHaveValue(8.625)
+ expect(screen.getByLabelText('Priority')).toHaveValue('High')
+ expect(screen.getByLabelText('Delivery')).toHaveValue('Ship')
  fireEvent.change(screen.getByLabelText('Customer'),{target:{value:'c1'}})
  fireEvent.change(screen.getByLabelText('Catalog product'),{target:{value:'M1 · Custom job · Printing'}})
  fireEvent.click(screen.getByRole('button',{name:'Save work order'}))
@@ -154,4 +158,5 @@ it('requires explicit manual price entry before saving a catalog line', async ()
  await screen.findByText('Saved')
  const saved=vi.mocked(apiFetch).mock.calls.find(([url,options])=>url==='/api/orders'&&options?.method==='POST')
  expect(JSON.parse(String(saved?.[1]?.body)).items[0]).toMatchObject({unit_price:12,price_overridden:true})
+ expect(JSON.parse(String(saved?.[1]?.body))).toMatchObject({tax_rate:8.625,priority:'High',delivery_method:'Ship'})
 })
