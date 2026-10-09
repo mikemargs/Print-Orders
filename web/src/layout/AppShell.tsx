@@ -74,6 +74,7 @@ export function AppShell() {
       <NavLink to="/issues">Customer Issues</NavLink>
       {(role === 'supervisor' || role === 'admin') && <NavLink to="/reports">Reports</NavLink>}
       {role === 'admin' && <NavLink to="/employees">Employees</NavLink>}
+      {role === 'admin' && <NavLink to="/settings">Settings</NavLink>}
     </aside>
     <main className="content">
       {storeError && <div className="error" role="alert">{storeError}</div>}

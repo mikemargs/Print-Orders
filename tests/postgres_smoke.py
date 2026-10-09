@@ -103,6 +103,7 @@ def main() -> None:
                     code=code,
                     password_hash="not-used-in-smoke-test",
                     active=True,
+                    default_tax_rate=Decimal("8.625"),
                 )
             )
             db.add(
@@ -129,7 +130,6 @@ def main() -> None:
                     "status": "New",
                     "priority": "Normal",
                     "received_date": "2026-10-03",
-                    "tax_rate": "8.625",
                     "items": [{"item_name": "Poster", "quantity": 1, "unit_price": "100"}],
                 },
             )

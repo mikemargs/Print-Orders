@@ -10,6 +10,7 @@ import { useOnline } from '../../offline/OnlineState'
 import { cacheCustomers, cachedCustomers, cacheOrders, cachedOrder } from '../../offline/db'
 import { CatalogProductPicker } from '../catalog/CatalogProductPicker'
 import { AttachmentPanel } from '../files/AttachmentPanel'
+import type { OrderDefaults } from '../settings/SettingsPage'
 
 type DiscountMode = 'amount' | 'percent'
 type FormValues = {customer_id:string; location_id:string; status:string; priority:string; received_date:string; due_date:string; assigned_to:string; delivery_method:string; po_number:string; description:string; production_notes:string; customer_notes:string; tax_rate:number; deposit:number; discount:number; discount_mode:DiscountMode; discount_percent:number; items:LineItem[]}
@@ -57,9 +58,21 @@ export function manualPricesConfirmed(items:LineItem[], products:CatalogProduct[
 }
 
 export function OrderEditor() {
+  const {id}=useParams()
+  const editing=Boolean(id&&id!=='new')
+  const {online}=useOnline()
+  const defaults=useQuery({queryKey:['order-defaults'],queryFn:()=>apiFetch<OrderDefaults>('/api/order-defaults'),enabled:online&&!editing,staleTime:0,refetchOnWindowFocus:false,refetchOnReconnect:false})
+  if(!editing&&online){
+    if(defaults.isError)return <div role="alert"><p className="error">Unable to load work order defaults: {defaults.error.message}</p><button onClick={()=>void defaults.refetch()}>Retry</button></div>
+    if(!defaults.data||defaults.isFetching)return <p>Loading work order defaults…</p>
+  }
+  return <OrderEditorForm key={id??'new'} defaults={defaults.data}/>
+}
+
+function OrderEditorForm({defaults}:{defaults?:OrderDefaults}) {
   const {id}=useParams(); const editing=Boolean(id&&id!=='new'); const [searchParams]=useSearchParams(); const initialCustomerId=!editing?(searchParams.get('customer_id')??''):''; const navigate=useNavigate(); const queryClient=useQueryClient(); const {session}=useSession(); const {online}=useOnline(); const [version,setVersion]=useState(0); const [error,setError]=useState(''); const [conflict,setConflict]=useState<WorkOrder|null>(null); const [offlineOrder,setOfflineOrder]=useState<WorkOrder|null>(null); const [currentOrder,setCurrentOrder]=useState<WorkOrder|null>(null); const [editMode,setEditMode]=useState(!editing); const [deleting,setDeleting]=useState(false)
   const [customerRows,setCustomers]=useState<Customer[]>([])
-  const {register,control,handleSubmit,reset,watch,setValue,getValues,formState:{isSubmitting}}=useForm<FormValues>({defaultValues:{customer_id:initialCustomerId,location_id:session?.location.id??'',status:'New',priority:'Normal',received_date:today(),due_date:'',assigned_to:'',delivery_method:'Pickup',po_number:'',description:'',production_notes:'',customer_notes:'',tax_rate:0,deposit:0,discount:0,discount_mode:'amount',discount_percent:0,items:[{item_name:'',quantity:1,unit_price:0}]}})
+  const {register,control,handleSubmit,reset,watch,setValue,getValues,formState:{isSubmitting}}=useForm<FormValues>({defaultValues:{customer_id:initialCustomerId,location_id:session?.location.id??'',status:'New',priority:defaults?.default_order_priority??'Normal',received_date:today(),due_date:'',assigned_to:'',delivery_method:defaults?.default_delivery_method??'Pickup',po_number:'',description:'',production_notes:'',customer_notes:'',tax_rate:defaults?.default_tax_rate??0,deposit:0,discount:0,discount_mode:'amount',discount_percent:0,items:[{item_name:'',quantity:1,unit_price:0}]}})
   const fields=useFieldArray({control,name:'items'})
   const catalog=useQuery({queryKey:['catalog-all'],queryFn:()=>listCatalog({limit:2000}),enabled:online})
   useEffect(()=>{if(!editing){setEditMode(true);setCurrentOrder(null)}else setEditMode(false);if(!online){if(editing&&id)void cachedOrder(id).then(x=>setOfflineOrder(x??null));return}void cachedCustomers().then(rows=>{if(rows.length)setCustomers(rows)});void apiFetch<{customers:Customer[]}>('/api/customers?limit=200').then(async x=>{setCustomers(x.customers);await cacheCustomers(x.customers)});if(editing)void apiFetch<WorkOrder>(`/api/orders/${id}`).then(async o=>{setCurrentOrder(o);setVersion(o.version);reset(toOrderFormValues(o));await cacheOrders([o])}).catch(e=>setError(e instanceof Error?e.message:'Unable to load order'))},[editing,id,reset,online])

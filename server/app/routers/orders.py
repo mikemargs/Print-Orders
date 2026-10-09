@@ -57,7 +57,7 @@ def list_orders(search: str='', location_id: str='', status: str='', priority: s
 @router.post('',status_code=201)
 def create_order(body: OrderCreate, background_tasks: BackgroundTasks, auth=Depends(web_mutation_context), db: Session=Depends(get_web_db)):
     try:
-        row=create_or_update_order(db,auth,str(uuid.uuid4()),0,body.model_dump())
+        row=create_or_update_order(db,auth,str(uuid.uuid4()),0,body.model_dump(exclude_unset=True))
         db.commit()
         payload=serialize_record(row)
         queue_work_order_created(background_tasks,db,row,auth.employee_id)
