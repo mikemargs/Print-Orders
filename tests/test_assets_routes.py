@@ -6,7 +6,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -24,10 +24,15 @@ class AssetRouteTests(unittest.TestCase):
         self.engine = create_engine(
             "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
         )
+        @event.listens_for(self.engine, "connect")
+        def enable_foreign_keys(connection, _record):
+            connection.execute("PRAGMA foreign_keys=ON")
+
         Base.metadata.create_all(self.engine)
-        self.Session = sessionmaker(bind=self.engine, expire_on_commit=False)
+        self.Session = sessionmaker(bind=self.engine, autoflush=False, expire_on_commit=False)
         with self.Session() as db:
             db.add(Company(id="co", name="Company", code="ASSET", password_hash="x"))
+            db.flush()
             db.add_all(
                 [
                     Location(
@@ -144,6 +149,12 @@ class AssetRouteTests(unittest.TestCase):
         self.assertEqual(item["quantity"], 10)
         self.assertFalse(item["low_stock"])
 
+        opening = self.client.get(f"/api/inventory/{item['id']}/history").json()["adjustments"]
+        self.assertEqual(len(opening), 1)
+        self.assertEqual(opening[0]["change_amount"], 10)
+        self.assertEqual(opening[0]["resulting_quantity"], 10)
+        self.assertEqual(opening[0]["adjusted_by_name"], "Supervisor")
+
         self.login("e", "employee", "l1")
         adjusted = self.client.post(
             f"/api/inventory/{item['id']}/adjust",
@@ -196,6 +207,15 @@ class AssetRouteTests(unittest.TestCase):
         self.assertEqual(summary["active_items"], 1)
         self.assertEqual(summary["low_stock"], 1)
         self.assertEqual(summary["out_of_stock"], 0)
+
+    def test_inventory_zero_quantity_has_no_opening_adjustment(self):
+        created = self.client.post(
+            "/api/inventory", json=self.inventory_body(quantity=0), headers=self.headers
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        history = self.client.get(f"/api/inventory/{created.json()['id']}/history")
+        self.assertEqual(history.status_code, 200, history.text)
+        self.assertEqual(history.json()["adjustments"], [])
 
     def test_inventory_management_permissions(self):
         self.login("e", "employee", "l1")
