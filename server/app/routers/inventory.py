@@ -240,6 +240,9 @@ def create_inventory_item(
     )
     db.add(row)
     if Decimal(body.quantity) > 0:
+        # Persist the parent before its opening adjustment; these models have
+        # no ORM relationship to order inserts. Keep both in one transaction.
+        db.flush()
         db.add(
             InventoryAdjustment(
                 id=str(uuid4()),
