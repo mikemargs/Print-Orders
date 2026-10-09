@@ -18,7 +18,7 @@ export type ChecklistTemplateInput = {
 }
 
 export const getOperationsChecklist = (locationId: string, date: string) =>
-  apiFetch<ChecklistResponse>(`/api/operations/checklist?location_id=${encodeURIComponent(locationId)}&checklist_date=${encodeURIComponent(date)}`)
+  apiFetch<ChecklistResponse>(`/api/operations/checklist?location_id=${encodeURIComponent(locationId)}${date?`&checklist_date=${encodeURIComponent(date)}`:''}`)
 
 export const getOperationsSummary = () => apiFetch<OperationsSummary>('/api/operations/summary')
 

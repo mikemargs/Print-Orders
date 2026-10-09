@@ -111,6 +111,14 @@ Logging an email does not send an email to the customer. Separate internal staff
 notifications can be sent through Resend when a new Customer Issue is created.
 Resolution notes do not process a refund or alter order totals.
 
+## Clickable summary views
+
+Summary cards throughout the browser app open the list behind their count: product pricing and categories, work orders, inventory and equipment, checklists, mailboxes, shipping, tasks, customer issues, customer profiles, and reports. **Tiered pricing** lists products with more than one price tier (including inactive products, matching the summary); **Manual price** lists active products requiring a manually entered price. **Categories** lists category counts and links to each category's active products.
+
+The selected summary view, store/customer scope, list filters, and page are stored in the URL for bookmarks, refresh, and browser Back. Use **Clear summary filter** to remove the summary condition while keeping the selected store/customer and other filters. Pages provide Previous/Next controls to reach every match. Monetary cards open the records contributing to the amount. Company-wide dashboard and report cards read across stores; existing permissions still govern edits.
+
+Checklist totals across stores use today's date in each store's timezone; each item retains that date when completed or reset. Leave the checklist date blank for today, or choose an explicit date. Mailbox, equipment, task, issue, and shipping overdue views use their store's timezone. Work-order overdue follows the Main Dashboard's existing UTC date boundary. Only cached work-order views are available offline; their counts reflect the bounded device cache. Other operational views require a connection. Deploy the updated API and browser bundle together; this update adds no database migration or external integration.
+
 ## Admin settings and work-order defaults
 
 Admins can open **Settings** to set the company-wide default tax rate (0–100%, up to four decimal places), work-order priority, and delivery method. These defaults apply across all stores when a new work order is opened. Employees can override them on individual orders, including an explicit 0% tax rate. Changing defaults does not recalculate existing work orders. Settings require an internet connection; employees and supervisors cannot access the Settings page or settings API.

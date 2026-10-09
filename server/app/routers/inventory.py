@@ -18,6 +18,7 @@ from ..schemas.assets import (
     InventoryItemCreate,
     InventoryItemUpdate,
 )
+from ..services.drilldowns import apply_view
 from ..web_sessions import get_web_db, web_auth_context, web_mutation_context
 
 router = APIRouter(prefix="/api/inventory", tags=["inventory"])
@@ -112,6 +113,7 @@ def _serialize_adjustment(db: Session, row: InventoryAdjustment) -> dict:
 
 @router.get("")
 def list_inventory(
+    view: str = "",
     search: str = "",
     location_id: str = "",
     category: str = "",
@@ -145,6 +147,7 @@ def list_inventory(
                 InventoryItem.vendor_sku.ilike(needle),
             )
         )
+    q = apply_view(db, auth, q, InventoryItem, view)
     total = db.scalar(select(func.count()).select_from(q.subquery()))
     rows = db.scalars(
         q.order_by(

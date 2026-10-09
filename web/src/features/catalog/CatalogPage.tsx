@@ -1,4 +1,6 @@
+import { SummaryCard, ViewNotice, PageNavigation, useUrlValue, useUrlFlag, useListView } from '../../components/SummaryCard'
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createCatalogProduct,
@@ -43,19 +45,20 @@ function pricingLabel(product:CatalogProduct){
 export function CatalogPage(){
   const {session}=useSession()
   const {online}=useOnline()
+  const {view,offset}=useListView()
   const qc=useQueryClient()
   const canManage=session?.employee.role==='supervisor'||session?.employee.role==='admin'
-  const [search,setSearch]=useState('')
-  const [category,setCategory]=useState('')
-  const [showInactive,setShowInactive]=useState(false)
+  const [search,setSearch]=useUrlValue('search','')
+  const [category,setCategory]=useUrlValue('category','')
+  const [showInactive,setShowInactive]=useUrlFlag('include_inactive')
   const [editing,setEditing]=useState<CatalogProduct|null>(null)
   const [formOpen,setFormOpen]=useState(false)
   const [form,setForm]=useState<CatalogProductInput>(emptyProduct)
 
   const catalog=useQuery({
-    queryKey:['catalog-page',search,category,showInactive],
-    queryFn:()=>listCatalog({search,category,include_inactive:showInactive,limit:2000}),
-    enabled:online,
+    queryKey:['catalog-page',view,offset,search,category,showInactive],
+    queryFn:()=>listCatalog({view:view==='categories'?'':view,search,category,include_inactive:showInactive,limit:100,offset}),
+    enabled:online&&view!=='categories',
   })
   const categories=useQuery({queryKey:['catalog-categories'],queryFn:getCatalogCategories,enabled:online})
   const summary=useQuery({queryKey:['catalog-summary'],queryFn:getCatalogSummary,enabled:online})
@@ -112,7 +115,7 @@ export function CatalogPage(){
 
   const categoryOptions=useMemo(()=>categories.data?.categories??[],[categories.data?.categories])
 
-  return <section>
+  return <section><ViewNotice/>
     <div className="page-heading">
       <div><h1>Products & Pricing</h1><p className="muted">Shared product catalog used by Work Orders and Inventory.</p></div>
       {online&&canManage&&<button onClick={formOpen?()=>{setFormOpen(false);setEditing(null)}:startNew}>{formOpen?'Close':'New Product'}</button>}
@@ -121,10 +124,10 @@ export function CatalogPage(){
     {!online&&<div className="offline-banner">Products & Pricing requires an online connection.</div>}
 
     {summary.data&&<div className="metric-grid">
-      <div className="metric"><span>Active products</span><strong>{summary.data.active_products}</strong></div>
-      <div className="metric"><span>Categories</span><strong>{summary.data.categories}</strong></div>
-      <div className="metric"><span>Tiered pricing</span><strong>{summary.data.tiered_products}</strong></div>
-      <div className="metric"><span>Manual price</span><strong>{summary.data.manual_price}</strong></div>
+      <SummaryCard to="/catalog?view=active"><span>Active products</span><strong>{summary.data.active_products}</strong></SummaryCard>
+      <SummaryCard to="/catalog?view=categories"><span>Categories</span><strong>{summary.data.categories}</strong></SummaryCard>
+      <SummaryCard to="/catalog?view=tiered"><span>Tiered pricing</span><strong>{summary.data.tiered_products}</strong></SummaryCard>
+      <SummaryCard to="/catalog?view=manual"><span>Manual price</span><strong>{summary.data.manual_price}</strong></SummaryCard>
     </div>}
 
     {summary.data?.initial_import&&<div className="panel catalog-import-note">
@@ -161,6 +164,13 @@ export function CatalogPage(){
       <div className="form-actions span-2"><button disabled={save.isPending}>{save.isPending?'Saving…':editing?'Save Product':'Create Product'}</button><button type="button" className="secondary" onClick={()=>{setFormOpen(false);setEditing(null)}}>Cancel</button></div>
     </form>}
 
+    {view==='categories'?<div className="panel">
+      <div className="section-heading"><h2>Categories</h2><span>{categoryOptions.length} matching</span></div>
+      {categories.isLoading?<p>Loading categories…</p>:categories.error?<p className="error">Unable to load categories</p>:<div className="table-wrap"><table>
+        <thead><tr><th>Category</th><th>Active products</th></tr></thead>
+        <tbody>{categories.data?.counts?.map(row=><tr key={row.category}><td><Link to={`/catalog?view=active&category=${encodeURIComponent(row.category)}`}>{row.category}</Link></td><td>{row.count}</td></tr>)}</tbody>
+      </table></div>}
+    </div>:<>
     <div className="toolbar order-filters">
       <input placeholder="Search item code, product, or category…" value={search} onChange={event=>setSearch(event.target.value)}/>
       <select aria-label="Catalog category filter" value={category} onChange={event=>setCategory(event.target.value)}><option value="">All categories</option>{categoryOptions.map(value=><option key={value}>{value}</option>)}</select>
@@ -177,5 +187,7 @@ export function CatalogPage(){
         </tr>)}</tbody>
       </table></div>:<p className="empty-state">No products match these filters.</p>}
     </div>
+    <PageNavigation total={catalog.data?.total} limit={100} count={catalog.data?.products.length??0}/>
+    </>}
   </section>
 }

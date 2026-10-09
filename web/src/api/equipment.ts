@@ -14,6 +14,7 @@ export type EquipmentSummary = {
 }
 
 export type EquipmentFilters = {
+  view?:string;
   search?: string
   location_id?: string
   category?: string

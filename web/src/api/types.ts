@@ -74,6 +74,7 @@ export interface OperationsChecklistCompletion {
 }
 
 export interface OperationsChecklistItem {
+  checklist_date?: string;
   id: string; location_id: string; title: string; description: string;
   category: 'Opening' | 'Closing' | 'Cleaning' | 'Equipment' | 'Deposit' | 'Supplies' | 'Safety' | 'Daily' | 'Other';
   active_days: number[]; required: boolean; active: boolean; sort_order: number; version: number;

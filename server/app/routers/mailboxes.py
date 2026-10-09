@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from ..database import Customer, Location, Mailbox, utcnow
 from ..schemas.mailboxes import MailboxCreate, MailboxUpdate
+from ..services.drilldowns import apply_view
 from ..web_sessions import get_web_db, web_auth_context, web_mutation_context
 
 router = APIRouter(prefix="/api/mailboxes", tags=["mailboxes"])
@@ -114,6 +115,7 @@ def _validate_customer(db: Session, auth, customer_id: str):
 
 @router.get("")
 def list_mailboxes(
+    view: str = "",
     search: str = "",
     location_id: str = "",
     status: str = "",
@@ -164,6 +166,7 @@ def list_mailboxes(
                 Customer.email.ilike(needle),
             )
         )
+    q = apply_view(db, auth, q, Mailbox, view)
     total = db.scalar(select(func.count()).select_from(q.subquery()))
     rows = db.scalars(
         q.order_by(

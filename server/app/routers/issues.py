@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from ..database import Customer, CustomerIssue, Employee, IssueActivity, Location, utcnow
 from ..schemas.issues import CommunicationCreate, IssueCreate, IssueUpdate
 from ..services.common import Conflict, Forbidden, Invalid, NotFound
+from ..services.drilldowns import apply_view
 from ..services.issues import (
     append_communication,
     create_issue,
@@ -102,13 +103,14 @@ def error_response(exc):
 
 @router.get("")
 def list_issues(
+    view: str = "",
     options=Depends(filters),
     limit: int = Query(50, ge=1, le=250),
     offset: int = Query(0, ge=0),
     auth=Depends(web_auth_context),
     db: Session = Depends(get_web_db),
 ):
-    q = issue_query(auth, options)
+    q = apply_view(db, auth, issue_query(auth, options), CustomerIssue, view)
     total = db.scalar(select(func.count()).select_from(q.subquery()))
     rows = db.scalars(
         q.order_by(

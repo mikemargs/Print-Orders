@@ -1,3 +1,4 @@
+import { ViewNotice, PageNavigation, useUrlValue, useUrlFlag, useListView } from '../../components/SummaryCard'
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
@@ -13,16 +14,17 @@ const priorities = ['Low','Normal','High','Urgent'] as const
 export function TasksPage(){
   const {session}=useSession()
   const {online}=useOnline()
+  const {view,offset}=useListView()
   const qc=useQueryClient()
   const [searchParams]=useSearchParams()
   const initialCustomerId=searchParams.get('customer_id')||''
   const [showCreate,setShowCreate]=useState(searchParams.get('new')==='1')
-  const [search,setSearch]=useState('')
-  const [status,setStatus]=useState('')
-  const [locationId,setLocationId]=useState('')
-  const [assignedEmployeeId,setAssignedEmployeeId]=useState('')
-  const [customerId,setCustomerId]=useState(initialCustomerId)
-  const [includeClosed,setIncludeClosed]=useState(false)
+  const [search,setSearch]=useUrlValue('search','')
+  const [status,setStatus]=useUrlValue('status','')
+  const [locationId,setLocationId]=useUrlValue('location_id','')
+  const [assignedEmployeeId,setAssignedEmployeeId]=useUrlValue('assigned_employee_id','')
+  const [customerId,setCustomerId]=useUrlValue('customer_id','')
+  const [includeClosed,setIncludeClosed]=useUrlFlag('include_closed')
   const [form,setForm]=useState({
     location_id:session?.location.id||'',
     title:'',
@@ -37,8 +39,9 @@ export function TasksPage(){
   })
 
   const query=useQuery({
-    queryKey:['tasks',search,status,locationId,assignedEmployeeId,customerId,includeClosed],
+    queryKey:['tasks',session?.company.id,session?.employee.id,view,offset,search,status,locationId,assignedEmployeeId,customerId,includeClosed],
     queryFn:()=>listTasks({
+      view, offset,
       search,
       status,
       location_id:locationId,
@@ -68,6 +71,7 @@ export function TasksPage(){
       setForm(old=>({...old,title:'',description:'',due_date:'',assigned_employee_id:'',customer_id:'',work_order_id:'',customer_issue_id:''}))
       await qc.invalidateQueries({queryKey:['tasks']})
       await qc.invalidateQueries({queryKey:['task-summary']})
+      await qc.invalidateQueries({queryKey:['customer-profile-counts']})
     },
   })
 
@@ -91,17 +95,18 @@ export function TasksPage(){
     onSuccess:async()=>{
       await qc.invalidateQueries({queryKey:['tasks']})
       await qc.invalidateQueries({queryKey:['task-summary']})
+      await qc.invalidateQueries({queryKey:['customer-profile-counts']})
     },
   })
 
-  const employees=options.data?.employees??[]
+  const employees=useMemo(()=>options.data?.employees??[],[options.data?.employees])
   const eligibleEmployees=useMemo(
     ()=>employees.filter(e=>e.role==='admin'||!e.location_ids.length||e.location_ids.includes(form.location_id)),
     [employees,form.location_id],
   )
   const today=new Date().toISOString().slice(0,10)
 
-  return <section>
+  return <section><ViewNotice/>
     <div className="page-heading">
       <div><h1>Tasks & Follow-Ups</h1><p className="muted">Operational work, reminders, and ownership across every store.</p></div>
       {online&&<button onClick={()=>setShowCreate(x=>!x)}>{showCreate?'Close':'New Task'}</button>}
@@ -144,5 +149,6 @@ export function TasksPage(){
         </tr>)}</tbody>
       </table></div>:<p className="empty-state">No tasks match these filters.</p>}
     </div>
+    <PageNavigation total={query.data?.total} limit={250} count={query.data?.tasks.length??0}/>
   </section>
 }

@@ -95,3 +95,26 @@ test('offline sign-out stays signed out when connectivity returns', async ({ pag
   await expect(page.getByRole('heading', { name: 'Print Order Manager' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Main Dashboard', exact: true })).toHaveCount(0)
 })
+
+test('catalog summary cards open their complete matching lists', async ({ page }) => {
+  await signIn(page)
+  await page.getByRole('link', {name:'Products & Pricing',exact:true}).click()
+  for (const label of ['Tiered pricing','Manual price']) {
+    const card=page.locator('.metric-link').filter({hasText:label})
+    await expect(card).toBeVisible()
+    const count=Number(await card.locator('strong').textContent())
+    await card.click()
+    await expect(page.getByRole('status')).toContainText(label)
+    await expect(page.locator('tbody tr')).toHaveCount(count)
+    await page.reload()
+    await expect(page.locator('tbody tr')).toHaveCount(count)
+  }
+  await page.locator('.metric-link').filter({hasText:'Categories'}).click()
+  await expect(page.getByRole('columnheader',{name:'Active products'})).toBeVisible()
+  const first=page.locator('tbody tr').first()
+  const count=Number(await first.locator('td').nth(1).textContent())
+  await first.getByRole('link').click()
+  await expect(page.locator('.section-heading').filter({has:page.getByRole('heading',{name:'Catalog',exact:true})})).toContainText(`${count} matching`)
+  await page.getByRole('link',{name:'Clear summary filter'}).click()
+  await expect(page.getByRole('status')).toHaveCount(0)
+})

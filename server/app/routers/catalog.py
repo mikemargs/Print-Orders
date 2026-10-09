@@ -21,6 +21,7 @@ from ..services.catalog import (
     replace_product_tiers,
     resolve_catalog_price,
 )
+from ..services.drilldowns import apply_view
 from ..web_sessions import get_web_db, web_auth_context, web_mutation_context
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
@@ -93,6 +94,7 @@ def _tiers_by_product(db: Session, company_id: str, product_ids: list[str]):
 
 @router.get("")
 def list_catalog(
+    view: str = "",
     search: str = "",
     category: str = "",
     include_inactive: bool = False,
@@ -104,7 +106,7 @@ def list_catalog(
 ):
     _ensure_seed(db, auth.company_id)
     q = select(CatalogProduct).where(CatalogProduct.company_id == auth.company_id)
-    if not include_inactive:
+    if not include_inactive and view != "tiered":
         q = q.where(CatalogProduct.active.is_(True))
     if category:
         q = q.where(CatalogProduct.category == category)
@@ -117,6 +119,7 @@ def list_catalog(
                 CatalogProduct.source_item_code.ilike(needle),
             )
         )
+    q = apply_view(db, auth, q, CatalogProduct, view)
     total = db.scalar(select(func.count()).select_from(q.subquery()))
     rows = db.scalars(
         q.order_by(
@@ -180,16 +183,17 @@ def catalog_summary(auth=Depends(web_auth_context), db: Session = Depends(get_we
 @router.get("/categories")
 def catalog_categories(auth=Depends(web_auth_context), db: Session = Depends(get_web_db)):
     _ensure_seed(db, auth.company_id)
-    values = db.scalars(
-        select(CatalogProduct.category)
+    values = db.execute(
+        select(CatalogProduct.category, func.count(CatalogProduct.id))
         .where(
             CatalogProduct.company_id == auth.company_id,
             CatalogProduct.active.is_(True),
         )
-        .distinct()
+        .group_by(CatalogProduct.category)
         .order_by(CatalogProduct.category)
     ).all()
-    return {"categories": list(values)}
+    return {"categories": [category for category, _ in values],
+            "counts": [{"category": category, "count": count} for category, count in values]}
 
 
 @router.get("/{product_id}/price")

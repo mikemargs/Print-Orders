@@ -1,3 +1,4 @@
+import { SummaryCard, ViewNotice, PageNavigation, useUrlValue, useUrlFlag, useListView } from '../../components/SummaryCard'
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -40,22 +41,24 @@ function emptyForm(locationId:string,customerId=''):ShippingCaseInput {
 export function ShippingCasesPage(){
   const {session}=useSession()
   const {online}=useOnline()
+  const {view,offset}=useListView()
   const qc=useQueryClient()
   const [searchParams]=useSearchParams()
   const initialCustomerId=searchParams.get('customer_id')||''
   const [showForm,setShowForm]=useState(searchParams.get('new')==='1')
   const [editing,setEditing]=useState<ShippingCaseRecord|null>(null)
   const [form,setForm]=useState<ShippingCaseInput>(()=>emptyForm(session?.location.id||'',initialCustomerId))
-  const [search,setSearch]=useState('')
-  const [locationId,setLocationId]=useState('')
-  const [customerId,setCustomerId]=useState(initialCustomerId)
-  const [status,setStatus]=useState('')
-  const [caseType,setCaseType]=useState('')
-  const [includeClosed,setIncludeClosed]=useState(false)
+  const [search,setSearch]=useUrlValue('search','')
+  const [locationId,setLocationId]=useUrlValue('location_id','')
+  const [customerId,setCustomerId]=useUrlValue('customer_id','')
+  const [status,setStatus]=useUrlValue('status','')
+  const [caseType,setCaseType]=useUrlValue('case_type','')
+  const [includeClosed,setIncludeClosed]=useUrlFlag('include_closed')
 
   const query=useQuery({
-    queryKey:['shipping-cases',search,locationId,customerId,status,caseType,includeClosed],
+    queryKey:['shipping-cases',view,offset,search,locationId,customerId,status,caseType,includeClosed],
     queryFn:()=>listShippingCases({
+      view, offset,
       search,
       location_id:locationId,
       customer_id:customerId,
@@ -78,6 +81,7 @@ export function ShippingCasesPage(){
       ? updateShippingCase(editing.id,{...form,version:editing.version})
       : createShippingCase(form),
     onSuccess:async()=>{
+      await qc.invalidateQueries({queryKey:['customer-profile-counts']})
       setEditing(null)
       setShowForm(false)
       setForm(emptyForm(session?.location.id||'',customerId))
@@ -122,7 +126,7 @@ export function ShippingCasesPage(){
     setShowForm(true)
   }
 
-  return <section>
+  return <section><ViewNotice/>
     <div className="page-heading">
       <div><h1>Shipping, Claims & GSR</h1><p className="muted">Track service failures, claims, carrier follow-ups, approvals, and refunds across all stores.</p></div>
       {online&&<button onClick={showForm?()=>{setShowForm(false);setEditing(null)}:startNew}>{showForm?'Close':'New Shipping Case'}</button>}
@@ -131,10 +135,10 @@ export function ShippingCasesPage(){
     {!online&&<div className="offline-banner">Shipping, Claims & GSR tracking requires an online connection.</div>}
 
     {online&&summary.data&&<div className="metric-grid">
-      <div className="metric"><span>Open cases</span><strong>{summary.data.open}</strong></div>
-      <div className="metric"><span>Overdue follow-ups</span><strong>{summary.data.overdue_followups}</strong></div>
-      <div className="metric"><span>GSR pending</span><strong>{summary.data.gsr_pending}</strong></div>
-      <div className="metric"><span>Claims pending</span><strong>{summary.data.claims_pending}</strong></div>
+      <SummaryCard to="/shipping?view=open"><span>Open cases</span><strong>{summary.data.open}</strong></SummaryCard>
+      <SummaryCard to="/shipping?view=overdue"><span>Overdue follow-ups</span><strong>{summary.data.overdue_followups}</strong></SummaryCard>
+      <SummaryCard to="/shipping?view=gsr"><span>GSR pending</span><strong>{summary.data.gsr_pending}</strong></SummaryCard>
+      <SummaryCard to="/shipping?view=claims"><span>Claims pending</span><strong>{summary.data.claims_pending}</strong></SummaryCard>
     </div>}
 
     {showForm&&online&&<form className="panel form-grid" onSubmit={e=>{e.preventDefault();save.mutate()}}>
@@ -190,5 +194,6 @@ export function ShippingCasesPage(){
         })}</tbody>
       </table></div>:<p className="empty-state">No shipping cases match these filters.</p>}
     </div>
+    <PageNavigation total={query.data?.total} limit={250} count={query.data?.cases.length??0}/>
   </section>
 }

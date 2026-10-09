@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..database import Customer, CustomerIssue, Location, ShippingCase, utcnow
 from ..schemas.shipping import ShippingCaseCreate, ShippingCaseUpdate
+from ..services.drilldowns import apply_view
 from ..web_sessions import get_web_db, web_auth_context, web_mutation_context
 
 router = APIRouter(prefix="/api/shipping-cases", tags=["shipping-cases"])
@@ -100,6 +101,7 @@ def _validate_links(db: Session, auth, body):
 
 @router.get("")
 def list_shipping_cases(
+    view: str = "",
     search: str = "",
     location_id: str = "",
     customer_id: str = "",
@@ -138,6 +140,7 @@ def list_shipping_cases(
                 Customer.last_name.ilike(needle),
             )
         )
+    q = apply_view(db, auth, q, ShippingCase, view)
     total = db.scalar(select(func.count()).select_from(q.subquery()))
     rows = db.scalars(
         q.order_by(

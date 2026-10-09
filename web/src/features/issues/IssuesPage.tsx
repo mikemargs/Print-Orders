@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { ViewNotice, PageNavigation, useListView } from '../../components/SummaryCard'
 import { Link, useSearchParams } from 'react-router-dom'
 import { categories, issueOptions, listIssues, priorities, statuses, type IssueFilters } from '../../api/issues'
 import { useSession } from '../../auth/SessionContext'
@@ -7,12 +7,14 @@ import { IssueSummary } from './IssueSummary'
 import { useIssueQuery } from './useIssues'
 import { overdue } from './time'
 export function IssuesPage(){
- const {session}=useSession();const {online}=useOnline();const [searchParams]=useSearchParams();const initialCustomerId=searchParams.get('customer_id')||''
- const [filters,setFilters]=useState<IssueFilters>({customer_id:initialCustomerId,unresolved_only:true});const [offset,setOffset]=useState(0)
- const query=useIssueQuery(['list',filters,offset],()=>listIssues({...filters,limit:50,offset}))
+ const {session}=useSession();const {online}=useOnline();const [searchParams,setSearchParams]=useSearchParams();const initialCustomerId=searchParams.get('customer_id')||''
+ const {view,offset}=useListView()
+ const filters:IssueFilters={customer_id:initialCustomerId,search:searchParams.get('search')||'',location_id:searchParams.get('location_id')||'',status:searchParams.get('status')||'',priority:searchParams.get('priority')||'',category:searchParams.get('category')||'',assigned_employee_id:searchParams.get('assigned_employee_id')||'',unresolved_only:searchParams.get('unresolved_only')!=='false'}
+ function setFilters(change:(old:IssueFilters)=>IssueFilters){const next=change(filters);const params=new URLSearchParams(searchParams);Object.entries(next).forEach(([key,value])=>params.set(key,String(value)));params.delete('offset');setSearchParams(params,{replace:true})}
+ const query=useIssueQuery(['list',filters,view,offset],()=>listIssues({...filters,view,limit:50,offset}))
  const options=useIssueQuery(['options'],issueOptions)
- function change(name:keyof IssueFilters,value:string|boolean){setFilters(old=>({...old,[name]:value}));setOffset(0)}
- return <section>
+ function change(name:keyof IssueFilters,value:string|boolean){setFilters(old=>({...old,[name]:value}))}
+ return <section><ViewNotice/>
   <div className="page-heading"><div><h1>Customer Issues</h1><p className="muted">Complaints, conversations, and follow-ups across all stores.</p></div>{online&&<Link className="button" to={filters.customer_id?`/issues/new?customer_id=${filters.customer_id}`:'/issues/new'}>New case</Link>}</div>
   {filters.customer_id&&<div className="notice">Customer filter is active. <button className="link-button" onClick={()=>change('customer_id','')}>Clear customer filter</button></div>}
   {!online&&<p className="offline-banner">Customer issues require an online connection. Previously loaded cases may be out of date; editing is unavailable.</p>}
@@ -20,11 +22,11 @@ export function IssuesPage(){
   <div className="panel issue-filters">
    <label>Search cases<input value={filters.search||''} onChange={e=>change('search',e.target.value)} placeholder="Customer, case reference, or title"/></label>
    <label>Filter by store<select value={filters.location_id||''} onChange={e=>change('location_id',e.target.value)}><option value="">All stores</option>{session?.locations.map(l=><option key={l.id} value={l.id}>{l.name} #{l.store_number}</option>)}</select></label>
-   <label>Filter by status<select value={filters.status||''} onChange={e=>{setFilters(old=>({...old,status:e.target.value,unresolved_only:!e.target.value}));setOffset(0)}}><option value="">All unresolved</option>{statuses.map(s=><option key={s}>{s}</option>)}</select></label>
+   <label>Filter by status<select value={filters.status||''} onChange={e=>{setFilters(old=>({...old,status:e.target.value,unresolved_only:!e.target.value}))}}><option value="">All unresolved</option>{statuses.map(s=><option key={s}>{s}</option>)}</select></label>
    <label>Filter by priority<select value={filters.priority||''} onChange={e=>change('priority',e.target.value)}><option value="">Any priority</option>{priorities.map(s=><option key={s}>{s}</option>)}</select></label>
    <label>Filter by category<select value={filters.category||''} onChange={e=>change('category',e.target.value)}><option value="">Any category</option>{categories.map(s=><option key={s}>{s}</option>)}</select></label>
    <label>Filter by employee<select value={filters.assigned_employee_id||''} onChange={e=>change('assigned_employee_id',e.target.value)}><option value="">Any employee</option>{options.data?.employees.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></label>
-   <label className="checkbox"><input type="checkbox" checked={!filters.unresolved_only&&!filters.status} onChange={e=>{setFilters(old=>({...old,status:'',unresolved_only:!e.target.checked}));setOffset(0)}}/>Include resolved cases</label>
+   <label className="checkbox"><input type="checkbox" checked={!filters.unresolved_only&&!filters.status} onChange={e=>{setFilters(old=>({...old,status:'',unresolved_only:!e.target.checked}))}}/>Include resolved cases</label>
   </div>
   <div className="panel">
    {query.isLoading?<p>Loading customer issues…</p>:query.error?<p className="error" role="alert">{query.error.message} <button onClick={()=>void query.refetch()}>Retry cases</button></p>:query.data?<>
@@ -34,7 +36,7 @@ export function IssuesPage(){
      <td>{i.store?.name} #{i.store?.store_number}</td><td>{i.status}</td><td><span className={`issue-priority ${i.priority.toLowerCase()}`}>{i.priority}</span></td><td>{i.assignee?.name||'Unassigned'}</td>
      <td>{i.follow_up_date||'No date'}{overdue(i)&&<strong className="issue-meta">Overdue</strong>}<small className="issue-meta">{i.next_action||'No next action'}</small></td>
     </tr>)}</tbody></table></div>:<p className="empty-state">No customer issues match these filters.</p>}
-    <div className="button-row issue-pagination"><button className="secondary" disabled={offset===0||!online} onClick={()=>setOffset(x=>Math.max(0,x-50))}>Previous page</button><span>Page {Math.floor(offset/50)+1}</span><button className="secondary" disabled={offset+50>=query.data.total||!online} onClick={()=>setOffset(x=>x+50)}>Next page</button></div>
+    <PageNavigation disabled={!online} total={query.data.total} limit={50} count={query.data.issues.length}/>
    </>:null}
   </div>
  </section>

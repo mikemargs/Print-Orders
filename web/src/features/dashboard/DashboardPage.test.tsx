@@ -85,5 +85,8 @@ describe('Main Dashboard', () => {
     expect(screen.getAllByText('Sayville #5127').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Selden #5345').length).toBeGreaterThan(0)
     expect(screen.getByText('2 total')).toBeInTheDocument()
+    expect(screen.getByRole('link',{name:'Pending 2'})).toHaveAttribute('href','/orders?view=pending&location_id=')
+    expect(screen.getByRole('link',{name:'Rush 1'})).toHaveAttribute('href','/orders?view=rush&location_id=')
+    expect(screen.getByRole('link',{name:'Selden #5345 1 pending order'})).toHaveAttribute('href','/orders?view=pending&location_id=s2')
   })
 })

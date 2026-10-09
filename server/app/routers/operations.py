@@ -133,6 +133,19 @@ def checklist(
     db: Session = Depends(get_web_db),
 ):
     selected_location = location_id or auth.location_id
+    if selected_location == "all":
+        stores = db.scalars(select(Location).where(
+            Location.company_id == auth.company_id, Location.active.is_(True)
+        ).order_by(Location.name)).all()
+        items = []
+        for store in stores:
+            result = checklist(store.id, checklist_date, auth, db)
+            items.extend({**item, "checklist_date": result["date"]} for item in result["items"])
+        return {
+            "location": {"id": "all", "name": "All stores", "store_number": "", "timezone": ""},
+            "date": checklist_date.isoformat() if checklist_date else "Today in each store",
+            "items": items,
+        }
     store = _store(db, auth, selected_location)
     day = checklist_date or _today(store)
     templates = _templates_for_date(db, auth.company_id, selected_location, day)
@@ -155,7 +168,7 @@ def checklist(
         },
         "date": day.isoformat(),
         "items": [
-            _item_dict(db, template, store, completions.get(template.id))
+            {**_item_dict(db, template, store, completions.get(template.id)), "checklist_date": day.isoformat()}
             for template in templates
         ],
     }

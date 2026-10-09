@@ -13,7 +13,7 @@ export interface CustomerIssue {
  store:Pick<Location,'id'|'name'|'store_number'|'timezone'>|null;assignee:Pick<Employee,'id'|'name'|'active'>|null;order_number:string|null
 }
 export interface IssueActivity {id:string;issue_id:string;activity_type:string;channel:string|null;occurred_at:string;recorded_at:string;author_name:string;summary:string;changed_fields:Record<string,{from:unknown;to:unknown}>}
-export interface IssueFilters {search?:string;location_id?:string;status?:string;priority?:string;category?:string;assigned_employee_id?:string;customer_id?:string;unresolved_only?:boolean;limit?:number;offset?:number}
+export interface IssueFilters {view?:string;search?:string;location_id?:string;status?:string;priority?:string;category?:string;assigned_employee_id?:string;customer_id?:string;unresolved_only?:boolean;limit?:number;offset?:number}
 export interface IssueSummary {open:number;overdue:number;high_priority:number;assigned_to_me:number}
 export interface IssueInput {customer_id:string;location_id:string;title:string;description:string;category:string;priority:string;assigned_employee_id:string|null;work_order_id:string|null;next_action:string;follow_up_date:string|null}
 export interface IssuePatch extends Partial<IssueInput> {version:number;status?:string;resolution_summary?:string;reopen_reason?:string}

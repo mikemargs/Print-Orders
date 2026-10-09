@@ -10,6 +10,7 @@ export type InventorySummary = {
 }
 
 export type InventoryFilters = {
+  view?:string;
   search?: string
   location_id?: string
   category?: string
