@@ -146,6 +146,10 @@ def main() -> None:
             if updated.version != 2:
                 raise AssertionError(f"Expected version 2, got {updated.version}")
 
+            paid = create_or_update_order(db, auth, order_id, 2, {"paid_in_full": True, "deposit": 25})
+            if not paid.paid_in_full or paid.balance != 0 or paid.deposit != Decimal(25):
+                raise AssertionError("Paid-in-full status must zero the balance and preserve the deposit")
+
             # SessionLocal intentionally disables autoflush, so persist the final
             # pending SyncEvent before asserting database-visible event count.
             db.flush()
@@ -154,8 +158,8 @@ def main() -> None:
                 .select_from(SyncEvent)
                 .where(SyncEvent.company_id == company_id)
             )
-            if events != 3:
-                raise AssertionError(f"Expected 3 sync events, got {events}")
+            if events != 4:
+                raise AssertionError(f"Expected 4 sync events, got {events}")
         finally:
             db.rollback()
 

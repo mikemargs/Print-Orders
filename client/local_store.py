@@ -139,6 +139,8 @@ class LocalStore:
                 conn.execute("ALTER TABLE orders ADD COLUMN discount_mode TEXT NOT NULL DEFAULT 'amount'")
             if "discount_percent" not in order_cols:
                 conn.execute("ALTER TABLE orders ADD COLUMN discount_percent REAL NOT NULL DEFAULT 0")
+            if "paid_in_full" not in order_cols:
+                conn.execute("ALTER TABLE orders ADD COLUMN paid_in_full INTEGER NOT NULL DEFAULT 0")
             conn.execute("INSERT OR IGNORE INTO meta(key,value) VALUES('sync_cursor','0')")
 
     @staticmethod
@@ -355,7 +357,7 @@ class LocalStore:
             "discount_percent": discount_percent,
             "subtotal": round(subtotal, 2),
             "total": round(total, 2),
-            "balance": round(max(total - deposit, 0), 2),
+            "balance": 0.0 if values.get("paid_in_full") else round(max(total - deposit, 0), 2),
         }
 
     def save_order(self, values: dict, items: list[dict], order_id: str | None = None) -> str:
@@ -377,15 +379,17 @@ class LocalStore:
             "customer_notes",
             "tax_rate",
             "deposit",
+            "paid_in_full",
             "discount",
             "discount_mode",
             "discount_percent",
         )
         with self.connect() as conn:
             old = conn.execute(
-                "SELECT version,order_number FROM orders WHERE id=?", (order_id,)
+                "SELECT version,order_number,paid_in_full FROM orders WHERE id=?", (order_id,)
             ).fetchone()
             version = int(old["version"]) if old else 0
+            values["paid_in_full"] = bool(values.get("paid_in_full", old["paid_in_full"] if old else False))
             if not values.get("order_number"):
                 values["order_number"] = (
                     old["order_number"] if old else self.next_order_number(values["location_id"])
@@ -702,6 +706,7 @@ class LocalStore:
                 "customer_notes",
                 "tax_rate",
                 "deposit",
+                "paid_in_full",
                 "discount",
                 "discount_mode",
                 "discount_percent",
@@ -718,6 +723,8 @@ class LocalStore:
                     value = payload.get(key, "amount")
                 elif key == "discount_percent":
                     value = payload.get(key, 0)
+                elif key == "paid_in_full":
+                    value = int(bool(payload.get(key, False)))
                 else:
                     value = payload.get(key, "")
                 if key == "items":

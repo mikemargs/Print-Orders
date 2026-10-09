@@ -6,6 +6,7 @@ import type { WorkOrder } from '../../api/types'
 import { useSession } from '../../auth/SessionContext'
 import { useOnline } from '../../offline/OnlineState'
 import { cacheOrders, cachedOrders } from '../../offline/db'
+import { paymentStatus } from './paymentStatus'
 
 export function OrdersPage() {
   const { session } = useSession()
@@ -81,7 +82,7 @@ export function OrdersPage() {
     </div>
     <div className="panel table-wrap">
       <table>
-        <thead><tr><th>Order</th><th>Status</th><th>Priority</th><th>Due</th><th>Description</th><th>Artwork</th><th>Total</th></tr></thead>
+        <thead><tr><th>Order</th><th>Status</th><th>Priority</th><th>Due</th><th>Description</th><th>Artwork</th><th>Total</th><th>Payment</th><th>Balance</th></tr></thead>
         <tbody>{query.data?.orders.map(order => <tr key={order.id}>
           <td><Link to={`/orders/${order.id}`}>{order.order_number}</Link></td>
           <td>{order.status}</td>
@@ -96,6 +97,8 @@ export function OrdersPage() {
                 : <span className="artwork-status unknown">Unknown</span>}
           </td>
           <td>${order.total.toFixed(2)}</td>
+          <td>{paymentStatus(order)}</td>
+          <td>${order.balance.toFixed(2)}</td>
         </tr>)}</tbody>
       </table>
       {!query.isLoading && !query.data?.orders.length && <p className="empty-state">No work orders found.</p>}

@@ -72,13 +72,14 @@ describe('WorkTicket print sheet', () => {
           production_notes: '',
           customer_notes: '',
           tax_rate: 8.625,
-          deposit: 0,
+          deposit: 10,
+          paid_in_full: true,
           discount: 10,
           discount_mode: 'amount',
           discount_percent: 0,
           subtotal: 100,
           total: 97.76,
-          balance: 97.76,
+          balance: 0,
           items: [{ item_name: 'Poster', quantity: 1, unit_price: 100 }],
           updated_at: '2026-10-06T12:00:00Z',
           updated_by: 'e1',
@@ -123,5 +124,7 @@ describe('WorkTicket print sheet', () => {
     expect(screen.getByText('PRINT ORDER')).toBeInTheDocument()
     expect(screen.getByText('161 North Main St, Sayville, NY 11782')).toBeInTheDocument()
     expect(screen.getByText('Tax (8.625%) $7.76')).toBeInTheDocument()
+    expect(screen.getByText('Paid in full')).toBeInTheDocument()
+    expect(screen.getByText('Deposit -$10.00')).toBeInTheDocument()
   })
 })

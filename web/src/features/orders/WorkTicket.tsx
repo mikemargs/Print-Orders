@@ -5,6 +5,7 @@ import type { Customer, WorkOrder } from '../../api/types'
 import { useSession } from '../../auth/SessionContext'
 import { useOnline } from '../../offline/OnlineState'
 import { cacheCustomers, cacheOrders, cachedCustomer, cachedOrder } from '../../offline/db'
+import { paymentStatus } from './paymentStatus'
 
 const STORE_ADDRESSES: Record<string, string> = {
   '5127': '161 North Main St, Sayville, NY 11782',
@@ -55,7 +56,7 @@ export function WorkTicket(){
     </div>
     <h2 className="ticket-section-title">{o.description||'Order Items'}</h2>
     <table><thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Amount</th></tr></thead><tbody>{o.items.map((x,i)=><tr key={i}><td>{String(x.item_name??x.description??'Item')}</td><td>{x.quantity}</td><td>${Number(x.unit_price).toFixed(2)}</td><td>${(Number(x.quantity)*Number(x.unit_price)).toFixed(2)}</td></tr>)}</tbody></table>
-    <div className="ticket-totals"><p>Subtotal ${Number(o.subtotal).toFixed(2)}</p><p>Tax ({formatPercent(Number(o.tax_rate))}%) ${taxAmount.toFixed(2)}</p><p>Discount{o.discount_mode==='percent'?' ('+Number(o.discount_percent).toFixed(2)+'%)':''} -${Number(o.discount).toFixed(2)}</p><p>Total <strong>${Number(o.total).toFixed(2)}</strong></p><p>Deposit -${Number(o.deposit).toFixed(2)}</p><p>Balance <strong>${Number(o.balance).toFixed(2)}</strong></p></div>
+    <div className="ticket-totals"><p>Subtotal ${Number(o.subtotal).toFixed(2)}</p><p>Tax ({formatPercent(Number(o.tax_rate))}%) ${taxAmount.toFixed(2)}</p><p>Discount{o.discount_mode==='percent'?' ('+Number(o.discount_percent).toFixed(2)+'%)':''} -${Number(o.discount).toFixed(2)}</p><p>Total <strong>${Number(o.total).toFixed(2)}</strong></p><p>Deposit -${Number(o.deposit).toFixed(2)}</p><p>Payment <strong>{paymentStatus(o)}</strong></p><p>Balance <strong>${Number(o.balance).toFixed(2)}</strong></p></div>
     {o.production_notes&&<section><h2 className="ticket-section-title">Production notes</h2><p className="prewrap">{o.production_notes}</p></section>}
     {o.customer_notes&&<section><h2 className="ticket-section-title">Customer notes</h2><p className="prewrap">{o.customer_notes}</p></section>}
     <footer className="ticket-footer"><span>The UPS Store® · {location?.name||'Print Services'}{location?.store_number?` · Store #${location.store_number}`:''}</span><span>Work Order {o.order_number}</span></footer>
