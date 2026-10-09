@@ -15,6 +15,7 @@ from ..database import (
     utcnow,
 )
 from ..schemas.tasks import TaskCreate, TaskUpdate
+from ..services.drilldowns import apply_view
 from ..web_sessions import get_web_db, web_auth_context, web_mutation_context
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -92,6 +93,7 @@ def _validate_links(db: Session, auth, body):
 
 @router.get("")
 def list_tasks(
+    view: str = "",
     search: str = "",
     location_id: str = "",
     status: str = "",
@@ -120,6 +122,7 @@ def list_tasks(
     if search.strip():
         needle = f"%{search.strip()}%"
         q = q.where(or_(OperationalTask.title.ilike(needle), OperationalTask.description.ilike(needle)))
+    q = apply_view(db, auth, q, OperationalTask, view)
     total = db.scalar(select(func.count()).select_from(q.subquery()))
     rows = db.scalars(
         q.order_by(

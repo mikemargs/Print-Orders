@@ -1,3 +1,4 @@
+import { SummaryCard } from '../../components/SummaryCard'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { apiFetch } from '../../api/http'
@@ -18,6 +19,12 @@ export function CustomerProfile() {
   const { id } = useParams()
   const { session } = useSession()
   const { online } = useOnline()
+  const counts = useQuery({
+    queryKey: ['customer-profile-counts', session?.company.id, id],
+    staleTime: 0,
+    enabled: Boolean(id) && online,
+    queryFn: () => apiFetch<Record<'active_orders'|'all_orders'|'open_issues'|'open_tasks'|'active_mailboxes'|'open_shipping',number>>(`/api/customers/${id}/summary`),
+  })
 
   const customer = useQuery({
     queryKey: ['customer-profile', id, online],
@@ -76,15 +83,10 @@ export function CustomerProfile() {
 
   const row = customer.data
   const allOrders = [...(orders.data ?? [])].sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-  const activeOrders = allOrders.filter(order => !['Completed', 'Cancelled'].includes(order.status))
   const allIssues = issues.data?.issues ?? []
-  const openIssues = allIssues.filter(issue => issue.status !== 'Resolved')
   const allTasks = tasks.data?.tasks ?? []
-  const openTasks = allTasks.filter(task => !['Completed', 'Cancelled'].includes(task.status))
   const allMailboxes = mailboxes.data?.mailboxes ?? []
-  const activeMailboxes = allMailboxes.filter(mailbox => mailbox.status !== 'Closed')
   const allShipping = shipping.data?.cases ?? []
-  const openShipping = allShipping.filter(item => !['Denied', 'Refunded', 'Resolved'].includes(item.status))
   const locationMap = new Map((session?.locations ?? []).map(location => [location.id, location]))
   const address = [row.address1, row.address2, row.city, row.state, row.postal_code].filter(Boolean).join(', ')
 
@@ -114,12 +116,12 @@ export function CustomerProfile() {
     </div>
 
     <div className="metric-grid customer-profile-metrics">
-      <div className="metric"><span>Active print orders</span><strong>{activeOrders.length}</strong></div>
-      <div className="metric"><span>Open customer issues</span><strong>{online ? openIssues.length : '—'}</strong></div>
-      <div className="metric"><span>Open tasks</span><strong>{online ? openTasks.length : '—'}</strong></div>
-      <div className="metric"><span>Active mailboxes</span><strong>{online ? activeMailboxes.length : '—'}</strong></div>
-      <div className="metric"><span>Open shipping cases</span><strong>{online ? openShipping.length : '—'}</strong></div>
-      <div className="metric"><span>Print orders on file</span><strong>{allOrders.length}</strong></div>
+      <SummaryCard to={`/orders?view=pending&customer_id=${id}`}><span>Active print orders</span><strong>{online?(counts.data?.active_orders??'—'):allOrders.filter(order=>!['Completed','Cancelled'].includes(order.status)).length}</strong></SummaryCard>
+      <SummaryCard disabled={!online} to={`/issues?view=open&customer_id=${id}`}><span>Open customer issues</span><strong>{online ? counts.data?.open_issues??'—' : '—'}</strong></SummaryCard>
+      <SummaryCard disabled={!online} to={`/tasks?view=open&customer_id=${id}`}><span>Open tasks</span><strong>{online ? counts.data?.open_tasks??'—' : '—'}</strong></SummaryCard>
+      <SummaryCard disabled={!online} to={`/mailboxes?view=active&customer_id=${id}`}><span>Active mailboxes</span><strong>{online ? counts.data?.active_mailboxes??'—' : '—'}</strong></SummaryCard>
+      <SummaryCard disabled={!online} to={`/shipping?view=open&customer_id=${id}`}><span>Open shipping cases</span><strong>{online ? counts.data?.open_shipping??'—' : '—'}</strong></SummaryCard>
+      <SummaryCard to={`/orders?view=all&customer_id=${id}`}><span>Print orders on file</span><strong>{online?(counts.data?.all_orders??'—'):allOrders.length}</strong></SummaryCard>
     </div>
 
     <div className="panel">

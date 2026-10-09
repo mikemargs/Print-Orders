@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { ViewNotice, PageNavigation, useUrlValue, useListView } from '../../components/SummaryCard'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { apiFetch } from '../../api/http'
@@ -8,21 +8,28 @@ import { useOnline } from '../../offline/OnlineState'
 import { cacheOrders, cachedOrders } from '../../offline/db'
 import { paymentStatus } from './paymentStatus'
 
+function filterOrderView(rows:WorkOrder[],view:string){
+ const pending=(o:WorkOrder)=>!['Completed','Cancelled'].includes(o.status)
+ const today=new Date().toISOString().slice(0,10)
+ return rows.filter(o=>view==='pending'?pending(o):view==='rush'?pending(o)&&o.priority==='Rush':view==='ready'?o.status==='Ready for Pickup':view==='overdue'?pending(o)&&!!o.due_date&&o.due_date<today:view==='outstanding'?o.balance>0:true)
+}
+
 export function OrdersPage() {
   const { session } = useSession()
   const { online } = useOnline()
+  const {view,offset}=useListView()
   const [searchParams] = useSearchParams()
   const initialCustomerId = searchParams.get('customer_id') ?? ''
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('')
-  const [priority, setPriority] = useState('')
-  const [customerId, setCustomerId] = useState(initialCustomerId)
-  const [locationId, setLocationId] = useState(initialCustomerId ? '' : (session?.location.id ?? ''))
-  const [dueStart, setDueStart] = useState('')
-  const [dueEnd, setDueEnd] = useState('')
+  const [search,setSearch]=useUrlValue('search','')
+  const [status,setStatus]=useUrlValue('status','')
+  const [priority,setPriority]=useUrlValue('priority','')
+  const [customerId,setCustomerId]=useUrlValue('customer_id','')
+  const [locationId,setLocationId]=useUrlValue('location_id',view||initialCustomerId?'':(session?.location.id??''))
+  const [dueStart,setDueStart]=useUrlValue('due_start','')
+  const [dueEnd,setDueEnd]=useUrlValue('due_end','')
 
   const query = useQuery({
-    queryKey: ['orders', search, status, priority, customerId, locationId, dueStart, dueEnd, online],
+    queryKey: ['orders',view,offset, search, status, priority, customerId, locationId, dueStart, dueEnd, online],
     queryFn: async () => {
       if (!online) {
         let rows = await cachedOrders()
@@ -38,10 +45,11 @@ export function OrdersPage() {
         if (locationId) rows = rows.filter(order => order.location_id === locationId)
         if (dueStart) rows = rows.filter(order => order.due_date && order.due_date >= dueStart)
         if (dueEnd) rows = rows.filter(order => order.due_date && order.due_date <= dueEnd)
-        return { orders: rows }
+        rows=filterOrderView(rows,view)
+        return {orders:rows.slice(offset,offset+250),total:rows.length}
       }
 
-      const params = new URLSearchParams({ limit: '250' })
+      const params = new URLSearchParams({ limit: '250',offset:String(offset) });if(view)params.set('view',view)
       if (search.trim()) params.set('search', search.trim())
       if (customerId) params.set('customer_id', customerId)
       if (status) params.set('status', status)
@@ -49,13 +57,13 @@ export function OrdersPage() {
       if (locationId) params.set('location_id', locationId)
       if (dueStart) params.set('due_start', dueStart)
       if (dueEnd) params.set('due_end', dueEnd)
-      const result = await apiFetch<{ orders: WorkOrder[] }>(`/api/orders?${params}`)
+      const result = await apiFetch<{ orders: WorkOrder[];total?:number }>(`/api/orders?${params}`)
       await cacheOrders(result.orders)
       return result
     },
   })
 
-  return <section>
+  return <section><ViewNotice/>
     <div className="page-heading">
       <div>
         <h1>Work Orders</h1>
@@ -103,5 +111,6 @@ export function OrdersPage() {
       </table>
       {!query.isLoading && !query.data?.orders.length && <p className="empty-state">No work orders found.</p>}
     </div>
+    <PageNavigation total={query.data?.total} limit={250} count={query.data?.orders.length??0}/>
   </section>
 }

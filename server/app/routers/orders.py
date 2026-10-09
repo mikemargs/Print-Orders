@@ -5,12 +5,13 @@ from datetime import date
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from ..database import ArtworkFile, Customer, WorkOrder
 from ..schemas.api import OrderCreate, OrderUpdate, VersionBody
 from ..services.common import Conflict, Forbidden, Invalid
+from ..services.drilldowns import apply_view
 from ..services.notifications import queue_work_order_created
 from ..services.records import create_or_update_order, delete_order, serialize_record
 from ..web_sessions import get_web_db, web_auth_context, web_mutation_context
@@ -24,7 +25,7 @@ def service_error(exc):
     raise exc
 
 @router.get('')
-def list_orders(search: str='', location_id: str='', status: str='', priority: str='', customer_id: str='', due_start: date | None=None, due_end: date | None=None, limit: int=Query(100,ge=1,le=250), offset: int=Query(0,ge=0), auth=Depends(web_auth_context), db: Session=Depends(get_web_db)):
+def list_orders(view: str='', search: str='', location_id: str='', status: str='', priority: str='', customer_id: str='', due_start: date | None=None, due_end: date | None=None, limit: int=Query(100,ge=1,le=250), offset: int=Query(0,ge=0), auth=Depends(web_auth_context), db: Session=Depends(get_web_db)):
     q=select(WorkOrder).where(WorkOrder.company_id==auth.company_id,WorkOrder.is_deleted.is_(False))
     if location_id: q=q.where(WorkOrder.location_id==location_id)
     if status: q=q.where(WorkOrder.status==status)
@@ -35,6 +36,8 @@ def list_orders(search: str='', location_id: str='', status: str='', priority: s
     if search.strip():
         needle=f"%{search.strip()}%"
         q=q.join(Customer,Customer.id==WorkOrder.customer_id).where(or_(WorkOrder.order_number.ilike(needle),WorkOrder.description.ilike(needle),Customer.company.ilike(needle),Customer.first_name.ilike(needle),Customer.last_name.ilike(needle)))
+    q=apply_view(db,auth,q,WorkOrder,view)
+    total=db.scalar(select(func.count()).select_from(q.subquery()))
     rows=db.scalars(q.order_by(WorkOrder.due_date,WorkOrder.updated_at.desc()).offset(offset).limit(limit)).all()
     order_ids=[row.id for row in rows]
     artwork_order_ids=set()
@@ -52,7 +55,7 @@ def list_orders(search: str='', location_id: str='', status: str='', priority: s
         payload=serialize_record(row)
         payload['has_artwork']=row.id in artwork_order_ids
         serialized.append(payload)
-    return {'orders':serialized}
+    return {'orders':serialized,'total':total}
 
 @router.post('',status_code=201)
 def create_order(body: OrderCreate, background_tasks: BackgroundTasks, auth=Depends(web_mutation_context), db: Session=Depends(get_web_db)):

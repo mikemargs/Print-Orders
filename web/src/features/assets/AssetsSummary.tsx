@@ -1,3 +1,4 @@
+import { SummaryCard } from '../../components/SummaryCard'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { getEquipmentSummary } from '../../api/equipment'
@@ -14,10 +15,10 @@ export function AssetsSummary(){
     <div className="section-heading"><h2>Inventory & Equipment</h2><Link to="/assets">Open workspace</Link></div>
     {!online?<p className="muted">Inventory and equipment status requires an online connection.</p>:loading?<p>Loading inventory and equipment status…</p>:failed?<p className="error">Unable to load inventory and equipment status.</p>:<>
       <div className="metric-grid">
-        <div className="metric"><span>Low stock</span><strong>{inventory.data?.low_stock??0}</strong></div>
-        <div className="metric"><span>Out of stock</span><strong>{inventory.data?.out_of_stock??0}</strong></div>
-        <div className="metric"><span>Equipment attention</span><strong>{(equipment.data?.needs_attention??0)+(equipment.data?.out_of_service??0)}</strong></div>
-        <div className="metric"><span>Service overdue</span><strong>{equipment.data?.service_overdue??0}</strong></div>
+        <SummaryCard to="/assets?tab=inventory&view=low"><span>Low stock</span><strong>{inventory.data?.low_stock??0}</strong></SummaryCard>
+        <SummaryCard to="/assets?tab=inventory&view=out"><span>Out of stock</span><strong>{inventory.data?.out_of_stock??0}</strong></SummaryCard>
+        <SummaryCard to="/assets?tab=equipment&view=attention"><span>Equipment attention</span><strong>{(equipment.data?.needs_attention??0)+(equipment.data?.out_of_service??0)}</strong></SummaryCard>
+        <SummaryCard to="/assets?tab=equipment&view=service_overdue"><span>Service overdue</span><strong>{equipment.data?.service_overdue??0}</strong></SummaryCard>
       </div>
     </>}
   </div>

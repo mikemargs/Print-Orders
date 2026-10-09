@@ -1,3 +1,4 @@
+import { SummaryCard } from '../../components/SummaryCard'
 import { AssetsSummary } from '../assets/AssetsSummary'
 import { OperationsSummary } from '../operations/OperationsSummary'
 import { ShippingSummary } from '../shipping/ShippingSummary'
@@ -69,10 +70,10 @@ export function DashboardPage() {
     </div>
 
     <div className="metric-grid">
-      <div className="metric"><span>Pending</span><strong>{pending.length}</strong></div>
-      <div className="metric"><span>Rush</span><strong>{rush.length}</strong></div>
-      <div className="metric"><span>Ready for pickup</span><strong>{ready.length}</strong></div>
-      <div className="metric"><span>Overdue</span><strong>{overdue.length}</strong></div>
+      <SummaryCard to="/orders?view=pending&location_id="><span>Pending</span><strong>{pending.length}</strong></SummaryCard>
+      <SummaryCard to="/orders?view=rush&location_id="><span>Rush</span><strong>{rush.length}</strong></SummaryCard>
+      <SummaryCard to="/orders?view=ready&location_id="><span>Ready for pickup</span><strong>{ready.length}</strong></SummaryCard>
+      <SummaryCard to="/orders?view=overdue&location_id="><span>Overdue</span><strong>{overdue.length}</strong></SummaryCard>
     </div>
 
     <AttentionQueue orders={pending}/>
@@ -84,11 +85,11 @@ export function DashboardPage() {
     <IssueSummary compact/>
 
     <div className="store-summary-grid" aria-label="Pending orders by store">
-      {storeCounts.map(store => <div key={store.id} className="store-summary-card">
+      {storeCounts.map(store => <Link key={store.id} className="store-summary-card" to={`/orders?view=pending&location_id=${store.id}`}>
         <span>{store.name} #{store.store_number}</span>
         <strong>{store.count}</strong>
         <small>pending order{store.count === 1 ? '' : 's'}</small>
-      </div>)}
+      </Link>)}
     </div>
 
     <div className="panel">

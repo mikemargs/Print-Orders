@@ -13,6 +13,7 @@ export type ShippingSummary = {
 }
 
 export type ShippingFilters = {
+  view?:string;
   search?: string
   location_id?: string
   customer_id?: string

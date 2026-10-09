@@ -1,3 +1,4 @@
+import { SummaryCard, ViewNotice, PageNavigation, useUrlValue, useUrlFlag, useListView } from '../../components/SummaryCard'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -38,22 +39,24 @@ function emptyForm(locationId:string,customerId=''):MailboxInput {
 export function MailboxesPage(){
   const {session}=useSession()
   const {online}=useOnline()
+  const {view,offset}=useListView()
   const qc=useQueryClient()
   const [searchParams]=useSearchParams()
   const initialCustomerId=searchParams.get('customer_id')||''
   const [showForm,setShowForm]=useState(searchParams.get('new')==='1')
   const [editing,setEditing]=useState<MailboxRecord|null>(null)
   const [form,setForm]=useState<MailboxInput>(()=>emptyForm(session?.location.id||'',initialCustomerId))
-  const [search,setSearch]=useState('')
-  const [locationId,setLocationId]=useState('')
-  const [status,setStatus]=useState('')
-  const [customerId,setCustomerId]=useState(initialCustomerId)
-  const [missingCompliance,setMissingCompliance]=useState(false)
-  const [overdueOnly,setOverdueOnly]=useState(false)
+  const [search,setSearch]=useUrlValue('search','')
+  const [locationId,setLocationId]=useUrlValue('location_id','')
+  const [status,setStatus]=useUrlValue('status','')
+  const [customerId,setCustomerId]=useUrlValue('customer_id','')
+  const [missingCompliance,setMissingCompliance]=useUrlFlag('missing_compliance')
+  const [overdueOnly,setOverdueOnly]=useUrlFlag('overdue_only')
 
   const query=useQuery({
-    queryKey:['mailboxes',search,locationId,status,customerId,missingCompliance,overdueOnly],
+    queryKey:['mailboxes',view,offset,search,locationId,status,customerId,missingCompliance,overdueOnly],
     queryFn:()=>listMailboxes({
+      view, offset,
       search,
       location_id:locationId,
       status,
@@ -72,6 +75,7 @@ export function MailboxesPage(){
       ? updateMailbox(editing.id,{...form,version:editing.version})
       : createMailbox(form),
     onSuccess:async()=>{
+      await qc.invalidateQueries({queryKey:['customer-profile-counts']})
       setEditing(null)
       setShowForm(false)
       setForm(emptyForm(session?.location.id||'',customerId))
@@ -112,7 +116,7 @@ export function MailboxesPage(){
     setShowForm(true)
   }
 
-  return <section>
+  return <section><ViewNotice/>
     <div className="page-heading">
       <div><h1>Mailbox Management</h1><p className="muted">Renewals, compliance, blockers, forwarding, and customer mailbox records across all stores.</p></div>
       {online&&<button onClick={showForm?()=>{setShowForm(false);setEditing(null)}:startNew}>{showForm?'Close':'New Mailbox'}</button>}
@@ -121,10 +125,10 @@ export function MailboxesPage(){
     {!online&&<div className="offline-banner">Mailbox Management requires an online connection.</div>}
 
     {online&&summary.data&&<div className="metric-grid">
-      <div className="metric"><span>Active mailboxes</span><strong>{summary.data.active}</strong></div>
-      <div className="metric"><span>Overdue renewals</span><strong>{summary.data.overdue}</strong></div>
-      <div className="metric"><span>Due within 30 days</span><strong>{summary.data.due_30}</strong></div>
-      <div className="metric"><span>Missing compliance</span><strong>{summary.data.missing_compliance}</strong></div>
+      <SummaryCard to="/mailboxes?view=active"><span>Active mailboxes</span><strong>{summary.data.active}</strong></SummaryCard>
+      <SummaryCard to="/mailboxes?view=overdue"><span>Overdue renewals</span><strong>{summary.data.overdue}</strong></SummaryCard>
+      <SummaryCard to="/mailboxes?view=due_30"><span>Due within 30 days</span><strong>{summary.data.due_30}</strong></SummaryCard>
+      <SummaryCard to="/mailboxes?view=missing_compliance"><span>Missing compliance</span><strong>{summary.data.missing_compliance}</strong></SummaryCard>
     </div>}
 
     {showForm&&online&&<form className="panel form-grid" onSubmit={e=>{e.preventDefault();save.mutate()}}>
@@ -179,5 +183,6 @@ export function MailboxesPage(){
         })}</tbody>
       </table></div>:<p className="empty-state">No mailboxes match these filters.</p>}
     </div>
+    <PageNavigation total={query.data?.total} limit={250} count={query.data?.mailboxes.length??0}/>
   </section>
 }

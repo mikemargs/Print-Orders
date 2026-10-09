@@ -4,12 +4,13 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from ..database import Customer
+from ..database import Customer, CustomerIssue, Mailbox, OperationalTask, ShippingCase, WorkOrder
 from ..schemas.api import CustomerCreate, CustomerUpdate, VersionBody
 from ..services.common import Conflict, Forbidden, Invalid
+from ..services.drilldowns import apply_view
 from ..services.records import create_or_update_customer, delete_customer, serialize_record
 from ..web_sessions import get_web_db, web_auth_context, web_mutation_context
 
@@ -37,6 +38,24 @@ def create_customer(body: CustomerCreate, auth=Depends(web_mutation_context), db
         db.commit(); return serialize_record(row)
     except Exception as exc:
         db.rollback(); return service_error(exc)
+
+@router.get('/{customer_id}/summary')
+def customer_summary(customer_id: str, auth=Depends(web_auth_context), db: Session=Depends(get_web_db)):
+    customer = db.get(Customer, customer_id)
+    if not customer or customer.company_id != auth.company_id or customer.is_deleted:
+        raise HTTPException(404, 'Customer not found')
+    result = {}
+    for key, model, view in [
+        ('active_orders', WorkOrder, 'pending'), ('all_orders', WorkOrder, 'all'),
+        ('open_issues', CustomerIssue, 'open'), ('open_tasks', OperationalTask, 'open'),
+        ('active_mailboxes', Mailbox, 'active'), ('open_shipping', ShippingCase, 'open'),
+    ]:
+        query = select(model).where(model.company_id == auth.company_id, model.customer_id == customer_id)
+        if model is WorkOrder:
+            query = query.where(WorkOrder.is_deleted.is_(False))
+        query = apply_view(db, auth, query, model, view)
+        result[key] = db.scalar(select(func.count()).select_from(query.subquery()))
+    return result
 
 @router.get('/{customer_id}')
 def get_customer(customer_id: str, auth=Depends(web_auth_context), db: Session=Depends(get_web_db)):

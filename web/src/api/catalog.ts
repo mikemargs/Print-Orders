@@ -13,6 +13,7 @@ export type CatalogProductInput = {
 }
 
 export const listCatalog = (options: {
+  view?: string
   search?: string
   category?: string
   include_inactive?: boolean
@@ -28,7 +29,7 @@ export const listCatalog = (options: {
 }
 
 export const getCatalogSummary = () => apiFetch<CatalogSummary>('/api/catalog/summary')
-export const getCatalogCategories = () => apiFetch<{categories:string[]}>('/api/catalog/categories')
+export const getCatalogCategories = () => apiFetch<{categories:string[];counts?:{category:string;count:number}[]}>('/api/catalog/categories')
 
 export const createCatalogProduct = (input: CatalogProductInput) =>
   apiFetch<CatalogProduct>('/api/catalog',{method:'POST',body:JSON.stringify(input)})

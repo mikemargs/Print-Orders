@@ -1,3 +1,4 @@
+import { SummaryCard, ViewNotice, PageNavigation, useUrlValue, useUrlFlag, useListView } from '../../components/SummaryCard'
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
@@ -55,20 +56,19 @@ function emptyEquipment(locationId: string): EquipmentInput {
 export function AssetsPage() {
   const { session } = useSession()
   const { online } = useOnline()
+  const {view,offset}=useListView()
   const qc = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [tab, setTab] = useState<'inventory' | 'equipment'>(
-    searchParams.get('tab') === 'equipment' ? 'equipment' : 'inventory',
-  )
+  const tab=searchParams.get('tab')==='equipment'?'equipment':'inventory'
   const canManage = session?.employee.role === 'supervisor' || session?.employee.role === 'admin'
   const allowedStores = session?.employee.role === 'admin'
     ? session.locations
     : [session?.location].filter(Boolean)
 
-  const [invSearch, setInvSearch] = useState('')
-  const [invLocation, setInvLocation] = useState('')
-  const [lowOnly, setLowOnly] = useState(searchParams.get('low') === '1')
-  const [showInactive, setShowInactive] = useState(false)
+  const [invSearch,setInvSearch]=useUrlValue('inv_search','')
+  const [invLocation,setInvLocation]=useUrlValue('inv_location','')
+  const [lowOnly,setLowOnly]=useUrlFlag('low')
+  const [showInactive,setShowInactive]=useUrlFlag('include_inactive')
   const [invFormOpen, setInvFormOpen] = useState(false)
   const [editingInv, setEditingInv] = useState<InventoryItemRecord | null>(null)
   const [invForm, setInvForm] = useState<InventoryItemInput>(
@@ -82,11 +82,11 @@ export function AssetsPage() {
   const [adjustNotes, setAdjustNotes] = useState('')
   const [invHistoryId, setInvHistoryId] = useState('')
 
-  const [eqSearch, setEqSearch] = useState('')
-  const [eqLocation, setEqLocation] = useState('')
-  const [eqStatus, setEqStatus] = useState('')
-  const [eqAttention, setEqAttention] = useState(searchParams.get('attention') === '1')
-  const [includeRetired, setIncludeRetired] = useState(false)
+  const [eqSearch,setEqSearch]=useUrlValue('eq_search','')
+  const [eqLocation,setEqLocation]=useUrlValue('eq_location','')
+  const [eqStatus,setEqStatus]=useUrlValue('eq_status','')
+  const [eqAttention,setEqAttention]=useUrlFlag('attention')
+  const [includeRetired,setIncludeRetired]=useUrlFlag('include_retired')
   const [eqFormOpen, setEqFormOpen] = useState(false)
   const [editingEq, setEditingEq] = useState<EquipmentAssetRecord | null>(null)
   const [eqForm, setEqForm] = useState<EquipmentInput>(
@@ -111,8 +111,9 @@ export function AssetsPage() {
 
   const catalog=useQuery({queryKey:['catalog-all'],queryFn:()=>listCatalog({limit:2000}),enabled:online})
   const inventory = useQuery({
-    queryKey: ['inventory', invSearch, invLocation, lowOnly, showInactive],
+    queryKey: ['inventory',tab,view,offset, invSearch, invLocation, lowOnly, showInactive],
     queryFn: () => listInventory({
+      view:tab==='inventory'?view:'',offset:tab==='inventory'?offset:0,
       search: invSearch, location_id: invLocation, low_stock: lowOnly,
       include_inactive: showInactive, limit: 500,
     }),
@@ -128,8 +129,9 @@ export function AssetsPage() {
   })
 
   const equipment = useQuery({
-    queryKey: ['equipment', eqSearch, eqLocation, eqStatus, eqAttention, includeRetired],
+    queryKey: ['equipment',tab,view,offset, eqSearch, eqLocation, eqStatus, eqAttention, includeRetired],
     queryFn: () => listEquipment({
+      view:tab==='equipment'?view:'',offset:tab==='equipment'?offset:0,
       search: eqSearch, location_id: eqLocation, status: eqStatus,
       attention_only: eqAttention, include_retired: includeRetired, limit: 500,
     }),
@@ -219,9 +221,9 @@ export function AssetsPage() {
   })
 
   function chooseTab(next: 'inventory' | 'equipment') {
-    setTab(next)
     const params = new URLSearchParams(searchParams)
     params.set('tab', next)
+    params.delete('view');params.delete('offset')
     setSearchParams(params, { replace: true })
   }
 
@@ -271,7 +273,7 @@ export function AssetsPage() {
     [equipment.data?.equipment],
   )
 
-  return <section>
+  return <section><ViewNotice/>
     <div className='page-heading'>
       <div>
         <h1>Inventory & Equipment</h1>
@@ -290,10 +292,10 @@ export function AssetsPage() {
 
     {tab === 'inventory' && <>
       {online && invSummary.data && <div className='metric-grid'>
-        <div className='metric'><span>Active items</span><strong>{invSummary.data.active_items}</strong></div>
-        <div className='metric'><span>Low stock</span><strong>{invSummary.data.low_stock}</strong></div>
-        <div className='metric'><span>Out of stock</span><strong>{invSummary.data.out_of_stock}</strong></div>
-        <div className='metric'><span>Stock value</span><strong>{'$'}{invSummary.data.stock_value.toFixed(2)}</strong></div>
+        <SummaryCard to="/assets?tab=inventory&view=active"><span>Active items</span><strong>{invSummary.data.active_items}</strong></SummaryCard>
+        <SummaryCard to="/assets?tab=inventory&view=low"><span>Low stock</span><strong>{invSummary.data.low_stock}</strong></SummaryCard>
+        <SummaryCard to="/assets?tab=inventory&view=out"><span>Out of stock</span><strong>{invSummary.data.out_of_stock}</strong></SummaryCard>
+        <SummaryCard to="/assets?tab=inventory&view=value"><span>Stock value</span><strong>{'$'}{invSummary.data.stock_value.toFixed(2)}</strong></SummaryCard>
       </div>}
 
       <div className='page-heading asset-subheading'>
@@ -425,10 +427,10 @@ export function AssetsPage() {
 
     {tab === 'equipment' && <>
       {online && eqSummary.data && <div className='metric-grid'>
-        <div className='metric'><span>Active equipment</span><strong>{eqSummary.data.active_assets}</strong></div>
-        <div className='metric'><span>Needs attention</span><strong>{eqSummary.data.needs_attention}</strong></div>
-        <div className='metric'><span>Out of service</span><strong>{eqSummary.data.out_of_service}</strong></div>
-        <div className='metric'><span>Service overdue</span><strong>{eqSummary.data.service_overdue}</strong></div>
+        <SummaryCard to="/assets?tab=equipment&view=active"><span>Active equipment</span><strong>{eqSummary.data.active_assets}</strong></SummaryCard>
+        <SummaryCard to="/assets?tab=equipment&view=needs_attention"><span>Needs attention</span><strong>{eqSummary.data.needs_attention}</strong></SummaryCard>
+        <SummaryCard to="/assets?tab=equipment&view=out_of_service"><span>Out of service</span><strong>{eqSummary.data.out_of_service}</strong></SummaryCard>
+        <SummaryCard to="/assets?tab=equipment&view=service_overdue"><span>Service overdue</span><strong>{eqSummary.data.service_overdue}</strong></SummaryCard>
       </div>}
 
       <div className='page-heading asset-subheading'>
@@ -559,5 +561,6 @@ export function AssetsPage() {
             : <p className='empty-state'>No equipment matches these filters.</p>}
       </div>
     </>}
+    <PageNavigation total={tab==='inventory'?inventory.data?.total:equipment.data?.total} limit={500} count={(tab==='inventory'?inventory.data?.items.length:equipment.data?.equipment.length)??0}/>
   </section>
 }

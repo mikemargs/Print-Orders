@@ -4,7 +4,7 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from ..database import (
@@ -20,6 +20,7 @@ from ..schemas.assets import (
     EquipmentIssueReport,
     EquipmentServiceCreate,
 )
+from ..services.drilldowns import apply_view, local_date_filter
 from ..web_sessions import get_web_db, web_auth_context, web_mutation_context
 
 router = APIRouter(prefix="/api/equipment", tags=["equipment"])
@@ -126,6 +127,7 @@ def _serialize_event(db: Session, row: EquipmentServiceEvent) -> dict:
 
 @router.get("")
 def list_equipment(
+    view: str = "",
     search: str = "",
     location_id: str = "",
     category: str = "",
@@ -163,6 +165,13 @@ def list_equipment(
                 EquipmentAsset.service_provider.ilike(needle),
             )
         )
+    q = apply_view(db, auth, q, EquipmentAsset, view)
+    if attention_only:
+        q = q.where(or_(
+            EquipmentAsset.status.in_(["Needs Attention", "Out of Service"]),
+            and_(EquipmentAsset.active.is_(True), EquipmentAsset.status != "Retired",
+                 local_date_filter(db, auth, EquipmentAsset, EquipmentAsset.next_service_date)),
+        ))
     total = db.scalar(select(func.count()).select_from(q.subquery()))
     rows = db.scalars(
         q.order_by(
@@ -174,14 +183,6 @@ def list_equipment(
         .limit(limit)
     ).all()
     serialized = [_serialize(db, row) for row in rows]
-    if attention_only:
-        serialized = [
-            row
-            for row in serialized
-            if row["status"] in {"Needs Attention", "Out of Service"}
-            or row["service_overdue"]
-        ]
-        total = len(serialized)
     serialized.sort(
         key=lambda row: (
             not (

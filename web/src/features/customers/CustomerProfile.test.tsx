@@ -48,6 +48,7 @@ describe('CustomerProfile', () => {
     vi.mocked(cacheCustomers).mockResolvedValue(undefined)
     vi.mocked(cacheOrders).mockResolvedValue(undefined)
     vi.mocked(apiFetch).mockImplementation(async (url: string) => {
+      if (url === '/api/customers/c1/summary') return {active_orders:251,all_orders:300,open_issues:1,open_tasks:1,active_mailboxes:1,open_shipping:1}
       if (url === '/api/customers/c1') return {
         id: 'c1', version: 1, is_deleted: false, company: 'Acme Landscaping', first_name: 'Sam', last_name: 'Lee',
         phone: '631-555-0100', email: 'sam@example.com', address1: '1 Main St', address2: '', city: 'Sayville',
@@ -115,6 +116,8 @@ describe('CustomerProfile', () => {
     )
 
     expect(await screen.findByRole('heading', { name: 'Acme Landscaping' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', {name:'Active print orders 251'})).toHaveAttribute('href','/orders?view=pending&customer_id=c1')
+    expect(screen.getByRole('link', {name:'Print orders on file 300'})).toHaveAttribute('href','/orders?view=all&customer_id=c1')
     expect(screen.getByText('Yard signs')).toBeInTheDocument()
     expect(screen.getByText('Delivery concern')).toBeInTheDocument()
     expect(screen.getByText('Confirm artwork')).toBeInTheDocument()
