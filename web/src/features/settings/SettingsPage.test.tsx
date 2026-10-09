@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, expect, it, vi } from 'vitest'
 import { apiFetch } from '../../api/http'
@@ -28,4 +28,17 @@ it('does not allow settings changes offline',()=>{
   render(<QueryClientProvider client={new QueryClient()}><SettingsPage/></QueryClientProvider>)
   expect(screen.getByText('Settings require an internet connection.')).toBeInTheDocument()
   expect(apiFetch).not.toHaveBeenCalled()
+})
+
+it('waits for fresh settings before exposing a cached form',async()=>{
+  vi.mocked(useOnline).mockReturnValue({online:true,lastSyncAt:''})
+  const cached={version:1,default_tax_rate:0,default_order_priority:'Normal',default_delivery_method:'Pickup'}
+  let complete!:(value:typeof cached)=>void
+  vi.mocked(apiFetch).mockReturnValue(new Promise(resolve=>{complete=resolve}))
+  const client=new QueryClient({defaultOptions:{queries:{retry:false}}})
+  client.setQueryData(['settings'],cached)
+  render(<QueryClientProvider client={client}><SettingsPage/></QueryClientProvider>)
+  expect(screen.queryByLabelText('Default tax rate (%)')).not.toBeInTheDocument()
+  await act(async()=>complete({...cached,version:2,default_tax_rate:8.625}))
+  expect(await screen.findByLabelText('Default tax rate (%)')).toHaveValue(8.625)
 })

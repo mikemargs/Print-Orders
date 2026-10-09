@@ -12,6 +12,17 @@ async function signIn(page:Page,employee='Test Admin',pin='246810'){
  await expect(page.getByRole('heading',{name:'Main Dashboard',exact:true})).toBeVisible()
 }
 
+async function switchStore(page:Page,label:string){
+ const select=page.getByRole('combobox',{name:'Active store',exact:true})
+ const locationId=await select.getByRole('option',{name:label,exact:true}).getAttribute('value')
+ const response=page.waitForResponse(r=>r.url().endsWith('/api/web/auth/location')&&r.request().method()==='POST')
+ await select.selectOption({label})
+ expect((await response).ok()).toBeTruthy()
+ await expect(select).toHaveValue(locationId!)
+ await expect(select).toBeEnabled()
+ await expect(page).toHaveURL(/\/$/)
+}
+
 test('customer issues support manual logs, follow-up, resolve and reopen across stores',async({page,context})=>{
  const unique=Date.now().toString();const customerName=`Case customer ${unique}`;const title=`Wrong package ${unique}`
  await signIn(page)
@@ -45,8 +56,7 @@ test('customer issues support manual logs, follow-up, resolve and reopen across 
  await page.getByLabel('Reason for reopening').fill('Customer requested another update')
  await page.getByRole('button',{name:'Reopen case',exact:true}).click()
  await expect(page.getByRole('button',{name:'Resolve case',exact:true})).toBeVisible()
- await page.getByRole('combobox',{name:'Active store',exact:true}).selectOption({label:'Selden #5345'})
- await expect(page).toHaveURL(/\/$/)
+ await switchStore(page,'Selden #5345')
  await page.goto(caseUrl)
  await expect(page.getByLabel('Case title')).toHaveValue(title)
  // Administrator has cross-store write rights; an ordinary employee requires the active store.
@@ -57,13 +67,11 @@ test('customer issues support manual logs, follow-up, resolve and reopen across 
  await page.getByRole('button',{name:'Sign out',exact:true}).click()
  await expect(page.getByLabel('Company code')).toBeVisible()
  await signIn(page,staffName,'135790')
- await page.getByRole('combobox',{name:'Active store',exact:true}).selectOption({label:'Selden #5345'})
- await expect(page).toHaveURL(/\/$/)
+ await switchStore(page,'Selden #5345')
  await page.goto(caseUrl)
  await expect(page.getByRole('button',{name:'Save case',exact:true})).toBeDisabled()
  await expect(page.getByText(/Switch to Sayville to update/)).toBeVisible()
- await page.getByRole('combobox',{name:'Active store',exact:true}).selectOption({label:'Sayville #5127'})
- await expect(page).toHaveURL(/\/$/)
+ await switchStore(page,'Sayville #5127')
  await page.goto(caseUrl)
  await expect(page.getByRole('button',{name:'Save case',exact:true})).toBeEnabled()
  await page.setViewportSize({width:390,height:844})

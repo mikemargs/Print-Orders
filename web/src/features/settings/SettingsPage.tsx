@@ -17,7 +17,7 @@ export function SettingsPage() {
   const settings = useQuery({queryKey:['settings'], queryFn:()=>apiFetch<OrderDefaults>('/api/settings'), enabled:online,refetchOnWindowFocus:false,refetchOnReconnect:false})
   if (!online) return <p>Settings require an internet connection.</p>
   if (settings.isError) return <div role="alert"><p className="error">Unable to load settings: {settings.error.message}</p><button onClick={()=>void settings.refetch()}>Retry</button></div>
-  if (!settings.data) return <p>Loading settings…</p>
+  if (!settings.data || settings.isFetching) return <p>Loading settings…</p>
   return <><SettingsForm key={settings.data.version} settings={settings.data} onEdit={()=>setSaved(false)} onSaved={result=>{
     queryClient.setQueryData(['settings'], result)
     queryClient.setQueryData(['order-defaults'], result)

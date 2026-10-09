@@ -23,7 +23,7 @@ test('online workflow remains readable after an offline reload', async ({ page, 
   await page.getByLabel('First name').fill('Pat')
   await page.getByLabel('Last name').fill('Tester')
   await page.getByRole('button', { name: 'Save customer' }).click()
-  await expect(page).toHaveURL(/\/customers\/[^/]+$/)
+  await expect(page).toHaveURL(/\/customers\/[0-9a-f-]{36}$/)
 
   await page.getByRole('link', { name: 'Settings', exact: true }).click()
   const originalTax = await page.getByLabel('Default tax rate (%)').inputValue()
@@ -39,7 +39,7 @@ test('online workflow remains readable after an offline reload', async ({ page, 
   await page.getByPlaceholder('Item / service / custom description').fill('Yard Sign')
   await page.getByLabel('Unit price').fill('25')
   await page.getByRole('button', { name: 'Save work order' }).click()
-  await expect(page).toHaveURL(/\/orders\/[^/]+$/)
+  await expect(page).toHaveURL(/\/orders\/[0-9a-f-]{36}$/)
   const savedOrderUrl = page.url()
   await page.getByRole('link', { name: 'Settings', exact: true }).click()
   await page.getByLabel('Default tax rate (%)').fill(originalTax)
