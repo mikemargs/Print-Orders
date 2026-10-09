@@ -63,6 +63,21 @@ class LocalStoreTests(unittest.TestCase):
         self.assertAlmostEqual(order["balance"], 72.76)
         self.assertTrue(order["order_number"].startswith("WO-5127-"))
 
+    def test_paid_order_keeps_deposit_and_payment_when_edited_by_desktop(self):
+        customer_id = self.store.save_customer({"company": "Paid customer"})
+        values = {"customer_id": customer_id, "location_id": self.location_id, "tax_rate": 0, "deposit": 25, "paid_in_full": True}
+        items = [{"item_name": "Poster", "quantity": 1, "unit_price": 100}]
+        order_id = self.store.save_order(values, items)
+        self.assertEqual(self.store.get_order(order_id)["balance"], 0)
+        self.assertEqual(self.store.get_order(order_id)["deposit"], 25)
+        del values["paid_in_full"]
+        self.store.save_order(values, items, order_id)
+        self.assertTrue(self.store.get_order(order_id)["paid_in_full"])
+        self.assertEqual(self.store.get_order(order_id)["balance"], 0)
+        self.store.save_order(values | {"paid_in_full": False}, items, order_id)
+        self.assertFalse(self.store.get_order(order_id)["paid_in_full"])
+        self.assertEqual(self.store.get_order(order_id)["balance"], 75)
+
     def test_offline_save_supports_percent_discount(self):
         customer_id = self.store.save_customer({"company": "Percent Customer"})
         order_id = self.store.save_order(

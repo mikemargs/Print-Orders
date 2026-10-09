@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 import jwt
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, Request
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
@@ -134,6 +134,7 @@ class OrderMutationPayload(BaseModel):
     customer_notes: str | None = None
     tax_rate: Decimal | None = Field(default=None, ge=0, le=100)
     deposit: Decimal | None = Field(default=None, ge=0)
+    paid_in_full: StrictBool | None = None
     discount: Decimal | None = Field(default=None, ge=0)
     discount_mode: Literal["amount", "percent"] | None = None
     discount_percent: Decimal | None = Field(default=None, ge=0, le=100)

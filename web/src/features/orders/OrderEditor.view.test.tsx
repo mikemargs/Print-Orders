@@ -122,6 +122,8 @@ describe('OrderEditor saved-order view mode', () => {
     expect(screen.getByText('Original description')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit Work Order' }))
+    fireEvent.change(screen.getByLabelText('Deposit'), {target:{value:'10'}})
+    fireEvent.click(screen.getByLabelText('Paid in full'))
     const description = screen.getByLabelText('Description')
     fireEvent.change(description, { target: { value: 'Updated description' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save work order' }))
@@ -129,6 +131,9 @@ describe('OrderEditor saved-order view mode', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Edit Work Order' })).toBeInTheDocument())
     expect(screen.queryByLabelText('Description')).not.toBeInTheDocument()
     expect(screen.getByText('Updated description')).toBeInTheDocument()
+    expect(screen.getByText('Paid in full')).toBeInTheDocument()
+    const request=vi.mocked(apiFetch).mock.calls.find(([url,options])=>url==='/api/orders/o1'&&options?.method==='PATCH')
+    expect(JSON.parse(String(request?.[1]?.body))).toMatchObject({deposit:10,paid_in_full:true})
   })
 })
 

@@ -18,7 +18,7 @@ CUSTOMER_FIELDS = {
 ORDER_FIELDS = {
     "customer_id", "location_id", "order_number", "status", "priority", "received_date",
     "due_date", "assigned_to", "delivery_method", "po_number", "description", "artwork_path",
-    "production_notes", "customer_notes", "tax_rate", "deposit", "discount",
+    "production_notes", "customer_notes", "tax_rate", "deposit", "paid_in_full", "discount",
     "discount_mode", "discount_percent", "items",
 }
 ORDER_STATUSES = {"Quote","New","Awaiting Artwork","Proof Sent","Proof Approved","In Production","Ready for Pickup","Completed","On Hold","Cancelled"}
@@ -127,6 +127,8 @@ def _validate_date(value: str, label: str) -> None:
 
 
 def validate_order_payload(payload: dict) -> None:
+    if "paid_in_full" in payload and not isinstance(payload["paid_in_full"], bool):
+        raise Invalid("paid_in_full must be a boolean")
     _normalize_bounded_text(payload, ORDER_TEXT_LIMITS)
     if "status" in payload and payload["status"] not in ORDER_STATUSES: raise Invalid("Invalid order status")
     if "priority" in payload and payload["priority"] not in PRIORITIES: raise Invalid("Invalid priority")
@@ -246,7 +248,7 @@ def calculate_order(order: WorkOrder) -> None:
         raise Invalid("Order total exceeds the supported maximum")
     order.subtotal = subtotal.quantize(cents, rounding=ROUND_HALF_UP)
     order.total = raw_total.quantize(cents, rounding=ROUND_HALF_UP)
-    order.balance = max(order.total - order.deposit, Decimal(0)).quantize(cents, rounding=ROUND_HALF_UP)
+    order.balance = Decimal(0) if order.paid_in_full else max(order.total - order.deposit, Decimal(0)).quantize(cents, rounding=ROUND_HALF_UP)
     if any(value > MAX_MONEY for value in (order.subtotal, order.total, order.balance)):
         raise Invalid("Order total exceeds the supported maximum")
 

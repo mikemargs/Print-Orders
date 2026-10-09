@@ -81,7 +81,7 @@ describe('Work Orders artwork status', () => {
 
     expect(await screen.findByText('WO-1')).toBeInTheDocument()
     const headers = screen.getAllByRole('columnheader').map(header => header.textContent)
-    expect(headers).toEqual(['Order', 'Status', 'Priority', 'Due', 'Description', 'Artwork', 'Total'])
+    expect(headers).toEqual(['Order', 'Status', 'Priority', 'Due', 'Description', 'Artwork', 'Total', 'Payment', 'Balance'])
     expect(screen.getByText('Uploaded')).toBeInTheDocument()
     expect(screen.getByText('Not Uploaded')).toBeInTheDocument()
   })

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 
 class VersionBody(BaseModel):
@@ -56,6 +56,7 @@ class OrderCreate(BaseModel):
     customer_notes: str = ''
     tax_rate: Decimal = Decimal(0)
     deposit: Decimal = Decimal(0)
+    paid_in_full: StrictBool = False
     discount: Decimal = Decimal(0)
     discount_mode: str = "amount"
     discount_percent: Decimal = Decimal(0)
@@ -80,6 +81,7 @@ class OrderUpdate(BaseModel):
     customer_notes: str | None = None
     tax_rate: Decimal | None = None
     deposit: Decimal | None = None
+    paid_in_full: StrictBool | None = None
     discount: Decimal | None = None
     discount_mode: str | None = None
     discount_percent: Decimal | None = None

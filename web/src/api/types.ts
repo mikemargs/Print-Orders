@@ -19,7 +19,7 @@ export interface LineItem {
 export interface WorkOrder {
   id: string; version: number; customer_id: string; location_id: string; order_number: string; status: string; priority: string;
   received_date: string; due_date: string; assigned_to: string; delivery_method: string; po_number: string; description: string;
-  artwork_path: string; production_notes: string; customer_notes: string; tax_rate: number; deposit: number; discount: number;
+  artwork_path: string; production_notes: string; customer_notes: string; tax_rate: number; deposit: number; paid_in_full?: boolean; discount: number;
   discount_mode: 'amount' | 'percent'; discount_percent: number; subtotal: number; total: number; balance: number;
   items: LineItem[]; updated_at: string; updated_by: string; is_deleted: boolean; has_artwork?: boolean
 }
