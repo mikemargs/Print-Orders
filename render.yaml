@@ -1,12 +1,12 @@
 services:
   - type: web
-    name: print-order-manager
+    name: packmanoperations
     runtime: docker
-    region: virginia
+    region: oregon
     dockerfilePath: ./server/Dockerfile
     dockerContext: .
     healthCheckPath: /api/health
-    autoDeploy: true
+    autoDeployTrigger: checksPass
     envVars:
       - key: APP_ENV
         value: production
